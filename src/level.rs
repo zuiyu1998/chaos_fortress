@@ -7,6 +7,7 @@ use crate::{
     audio::music,
     demo::player::{PlayerAssets, player},
     map::{self, MapData},
+    role,
     screens::Screen,
 };
 
@@ -46,6 +47,12 @@ pub fn spawn_level(
     ))
     .with_children(|level| {
         map::map(level, &map_data);
+        level.spawn(role::role(
+            &map_data,
+            3,
+            5,
+            Sprite::from_color(Color::BLACK, Vec2::splat(map_data.cell_size)),
+        ));
         level.spawn(player(400.0, &player_assets, &mut texture_atlas_layouts));
         level.spawn((
             Name::new("Gameplay Music"),
