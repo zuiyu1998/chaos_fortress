@@ -5,6 +5,7 @@
 
 use bevy::prelude::*;
 
+use crate::common::VisualDisplayLayer;
 use crate::map::MapData;
 
 pub(super) fn plugin(app: &mut App) {
@@ -35,7 +36,7 @@ pub fn role(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl B
         Name::new(format!("Role ({column}, {row})")),
         Role,
         sprite,
-        Transform::from_xyz(x, y, 0.0),
+        Transform::from_xyz(x, y, VisualDisplayLayer::Character.z_value()),
         Visibility::default(),
     )
 }

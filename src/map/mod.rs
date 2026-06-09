@@ -5,6 +5,8 @@
 use bevy::prelude::*;
 use bevy::ecs::hierarchy::ChildSpawnerCommands;
 
+use crate::common::VisualDisplayLayer;
+
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Map>();
     app.init_resource::<MapData>();
@@ -87,7 +89,7 @@ pub fn map_cell(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> im
     (
         Name::new(format!("MapCell ({column}, {row})")),
         sprite,
-        Transform::from_xyz(x, y, 0.0),
+        Transform::from_xyz(x, y, VisualDisplayLayer::Terrain.z_value()),
         Visibility::default(),
     )
 }
