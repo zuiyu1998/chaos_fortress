@@ -6,6 +6,7 @@
 mod asset_tracking;
 mod audio;
 mod demo;
+mod level;
 mod map;
 #[cfg(feature = "dev")]
 mod dev_tools;
@@ -49,6 +50,7 @@ impl Plugin for AppPlugin {
             asset_tracking::plugin,
             audio::plugin,
             demo::plugin,
+            level::plugin,
             map::plugin,
             #[cfg(feature = "dev")]
             dev_tools::plugin,
