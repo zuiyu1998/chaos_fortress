@@ -8,6 +8,7 @@ mod audio;
 mod demo;
 mod level;
 mod map;
+mod role;
 #[cfg(feature = "dev")]
 mod dev_tools;
 mod menus;
@@ -52,6 +53,7 @@ impl Plugin for AppPlugin {
             demo::plugin,
             level::plugin,
             map::plugin,
+            role::plugin,
             #[cfg(feature = "dev")]
             dev_tools::plugin,
             menus::plugin,
