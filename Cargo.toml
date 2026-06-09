@@ -16,6 +16,9 @@ tracing = { version = "0.1", features = [
     "release_max_level_warn",
 ] }
 
+# Dev-only: world inspector for debugging entities and resources.
+bevy-inspector-egui = { version = "0.36", optional = true }
+
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
@@ -29,6 +32,8 @@ dev = [
     "bevy/bevy_ui_debug",
     # Improve error messages coming from Bevy
     "bevy/track_location",
+    # World inspector for debugging entities and resources.
+    "bevy-inspector-egui",
 ]
 dev_native = [
     "dev",

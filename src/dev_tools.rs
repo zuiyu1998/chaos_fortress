@@ -3,12 +3,17 @@
 use bevy::{
     dev_tools::states::log_transitions, input::common_conditions::input_just_pressed, prelude::*,
 };
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 
 use crate::screens::Screen;
 
 pub(super) fn plugin(app: &mut App) {
     // Log `Screen` state transitions.
     app.add_systems(Update, log_transitions::<Screen>);
+
+    // Open the world inspector for debugging entities and resources.
+    app.add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()));
 
     // Toggle the debug overlay for UI.
     app.add_systems(
