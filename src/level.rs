@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     asset_tracking::LoadResource,
     audio::music,
+    enemy,
     map::{self, MapData},
     role,
     screens::Screen,
@@ -49,6 +50,12 @@ pub fn spawn_level(
             3,
             5,
             Sprite::from_color(Color::BLACK, Vec2::splat(map_data.cell_size)),
+        ));
+        level.spawn(enemy::enemy(
+            &map_data,
+            4,
+            2,
+            Sprite::from_color(Color::srgb(1.0, 0.0, 0.0), Vec2::splat(map_data.cell_size)),
         ));
         level.spawn((
             Name::new("Gameplay Music"),
