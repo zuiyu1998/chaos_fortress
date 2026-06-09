@@ -1859,7 +1859,6 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "getrandom",
- "rand",
  "tracing",
 ]
 

@@ -5,7 +5,6 @@
 
 mod asset_tracking;
 mod audio;
-mod demo;
 mod level;
 mod map;
 mod role;
@@ -50,7 +49,6 @@ impl Plugin for AppPlugin {
         app.add_plugins((
             asset_tracking::plugin,
             audio::plugin,
-            demo::plugin,
             level::plugin,
             map::plugin,
             role::plugin,
