@@ -42,3 +42,15 @@ impl Default for MapData {
         }
     }
 }
+
+/// Spawn the map entity.
+///
+/// Returns a bundle containing the [`Map`] marker and transform components.
+pub fn map(_map_data: &MapData) -> impl Bundle {
+    (
+        Name::new("Map"),
+        Map,
+        Transform::default(),
+        Visibility::default(),
+    )
+}
