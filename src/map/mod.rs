@@ -3,6 +3,7 @@
 //! Defines the [`Map`] component, which marks an entity as the game map.
 
 use bevy::prelude::*;
+use bevy::ecs::hierarchy::ChildSpawnerCommands;
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Map>();
@@ -43,14 +44,50 @@ impl Default for MapData {
     }
 }
 
-/// Spawn the map entity.
+/// Spawn the map entity along with grid cells.
 ///
-/// Returns a bundle containing the [`Map`] marker and transform components.
-pub fn map(_map_data: &MapData) -> impl Bundle {
+/// Spawns a [`Map`] entity under the given `parent` builder, then adds
+/// a grid of cell children using [`map_cell`]. The grid dimensions and
+/// cell size come from [`MapData`].
+pub fn map(parent: &mut ChildSpawnerCommands, map_data: &MapData) {
+    parent
+        .spawn((
+            Name::new("Map"),
+            Map,
+            Transform::default(),
+            Visibility::default(),
+        ))
+        .with_children(|cell_parent| {
+            for row in 0..map_data.height {
+                for col in 0..map_data.width {
+                    cell_parent.spawn(map_cell(
+                        map_data,
+                        col,
+                        row,
+                        Sprite::from_color(
+                            Color::WHITE,
+                            Vec2::splat(map_data.cell_size),
+                        ),
+                    ));
+                }
+            }
+        });
+}
+
+/// Spawn a cell sprite at a given grid position.
+///
+/// Returns a bundle containing a [`Sprite`] and [`Transform`] positioned
+/// at the cell location relative to the map's origin. The grid is centered
+/// on the map entity (cell (0,0) is top-left).
+pub fn map_cell(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
+    let cell_size = map_data.cell_size;
+    // Center the grid on the map's origin
+    let x = (column as f32 - (map_data.width as f32 - 1.0) / 2.0) * cell_size;
+    let y = -((row as f32 - (map_data.height as f32 - 1.0) / 2.0) * cell_size);
     (
-        Name::new("Map"),
-        Map,
-        Transform::default(),
+        Name::new(format!("MapCell ({column}, {row})")),
+        sprite,
+        Transform::from_xyz(x, y, 0.0),
         Visibility::default(),
     )
 }

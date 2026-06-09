@@ -43,13 +43,13 @@ pub fn spawn_level(
         Transform::default(),
         Visibility::default(),
         DespawnOnExit(Screen::Gameplay),
-        children![
-            map::map(&map_data),
-            player(400.0, &player_assets, &mut texture_atlas_layouts),
-            (
-                Name::new("Gameplay Music"),
-                music(level_assets.music.clone())
-            )
-        ],
-    ));
+    ))
+    .with_children(|level| {
+        map::map(level, &map_data);
+        level.spawn(player(400.0, &player_assets, &mut texture_atlas_layouts));
+        level.spawn((
+            Name::new("Gameplay Music"),
+            music(level_assets.music.clone()),
+        ));
+    });
 }
