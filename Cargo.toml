@@ -11,6 +11,7 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 # Remove these features if you want to profile your game with tracy.
 # (see <https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-profiler>)
 avian2d = { version = "0.6", features = ["diagnostic_ui"] }
+bevy_gearbox = "0.6"
 
 tracing = { version = "0.1", features = [
     "max_level_debug",

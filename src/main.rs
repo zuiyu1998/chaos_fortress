@@ -19,6 +19,7 @@ mod theme;
 use avian2d::PhysicsPlugins;
 use avian2d::prelude::Gravity;
 use bevy::{asset::AssetMetaCheck, prelude::*};
+use bevy_gearbox::GearboxPlugin;
 
 fn main() -> AppExit {
     App::new().add_plugins(AppPlugin).run()
@@ -51,6 +52,7 @@ impl Plugin for AppPlugin {
 
         // Add other plugins.
         app.add_plugins((
+            GearboxPlugin,
             PhysicsPlugins::default(),
             asset_tracking::plugin,
             audio::plugin,
