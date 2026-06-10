@@ -1,10 +1,11 @@
 //! Development tools for the game. This plugin is only enabled in dev builds.
 
+use avian2d::diagnostics::{ui::PhysicsDiagnosticsUiPlugin, PhysicsDiagnosticsPlugin};
 use bevy::{
     dev_tools::states::log_transitions, input::common_conditions::input_just_pressed, prelude::*,
 };
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use crate::screens::Screen;
 
@@ -14,6 +15,9 @@ pub(super) fn plugin(app: &mut App) {
 
     // Open the world inspector for debugging entities and resources.
     app.add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()));
+
+    // Add physics diagnostics for profiling and debugging.
+    app.add_plugins((PhysicsDiagnosticsPlugin, PhysicsDiagnosticsUiPlugin));
 
     // Toggle the debug overlay for UI.
     app.add_systems(

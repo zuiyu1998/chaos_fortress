@@ -10,6 +10,8 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 # Compile out low-severity logs to improve performance.
 # Remove these features if you want to profile your game with tracy.
 # (see <https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-profiler>)
+avian2d = { version = "0.6", features = ["diagnostic_ui"] }
+
 tracing = { version = "0.1", features = [
     "max_level_debug",
     "release_max_level_warn",
