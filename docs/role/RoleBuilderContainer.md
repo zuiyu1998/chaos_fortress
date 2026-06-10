@@ -1,6 +1,6 @@
 # RoleBuilderContainer
 
-`RoleBuilderContainer` 是一个**按名称存储和查找 `dyn RoleBuilder` 的 Bevy `Resource`**，用于在运行时根据角色名称查找对应的构建器并生成角色实体。
+`RoleBuilderContainer` 是一个**按名称存储和查找 builder 的 Bevy `Resource`**，用于在运行时根据角色名称查找对应的构建器并生成角色实体。
 
 ## 设计动机
 
@@ -13,69 +13,70 @@
 ```rust
 use std::collections::HashMap;
 
-/// 按名称存储 `dyn RoleBuilder` 的 Bevy 资源。
-///
-/// 通过 `register` 注册构建器，通过 `build` 按名称查找并执行构建。
-/// 使用前需要通过 `app.insert_resource()` 插入 ECS。
+/// 按名称存储 builder 的 Bevy 资源。
 #[derive(Resource)]
 pub struct RoleBuilderContainer {
-    builders: HashMap<String, Box<dyn RoleBuilder>>,
+    builders: HashMap<
+        String,
+        Box<dyn for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity + Send + Sync>,
+    >,
 }
 
 impl RoleBuilderContainer {
-    /// 创建一个空容器。
-    pub fn new() -> Self {
-        Self {
-            builders: HashMap::new(),
-        }
-    }
+    pub fn new() -> Self { /* ... */ }
 
-    /// 注册一个命名构建器。
-    ///
-    /// - `name`：角色名称，后续根据此名称查找构建器。
-    /// - `builder`：实现了 `RoleBuilder` 的构建器实例。
-    pub fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static) {
-        self.builders.insert(name.into(), Box::new(builder));
-    }
+    /// 从实现了 `RoleBuilder` 的类型注册。
+    pub fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static) { /* ... */ }
 
-    /// 根据名称查找并执行构建。
-    ///
-    /// 如果未找到对应的构建器，返回 `None`。
-    pub fn build(&self, name: &str, ctx: RoleBuilderContext) -> Option<Entity> {
-        self.builders
-            .get(name)
-            .map(|builder| builder.build(ctx))
-    }
+    /// 直接注册一个闭包构建器。
+    pub fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)
+    where F: for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity + Send + Sync + 'static
+    { /* ... */ }
+
+    /// 按名称查找并执行构建。
+    pub fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity> { /* ... */ }
 }
 ```
 
-## 使用方式
+> 内部使用 `Box<dyn for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity>` 存储。
+> `Commands` 直接作为闭包参数，`RoleBuilderContext` 仅包含 `position` 和 `parent` 等纯数据。
 
-`RoleBuilderContainer` 本身是一个 Bevy `Resource`，需在插件中通过 `app.insert_resource()` 注册，然后通过 `Res<T>` / `ResMut<T>` 在系统中访问：
+## 使用方式
 
 ```rust
 use bevy::prelude::*;
 
-// 在插件中插入
+// 在插件中插入（已在 role::plugin 中自动完成）
 fn plugin(app: &mut App) {
     app.insert_resource(RoleBuilderContainer::new())
        .add_systems(Startup, register_builders);
 }
 
-// 系统：注册所有角色构建器
+// 系统：注册构建器
 fn register_builders(mut container: ResMut<RoleBuilderContainer>) {
+    // 方式一：传入实现了 RoleBuilder 的类型
     container.register("hero", PlayerBuilder { name: "Hero".into() });
-    container.register("npc_merchant", NpcBuilder { npc_type: NpcType::Merchant });
+
+    // 方式二：直接传入闭包
+    container.register_fn("npc", |commands, ctx| {
+        let (col, row) = ctx.position;
+        commands.spawn((
+            Name::new(format!("NPC ({col},{row})")),
+            Role,
+            // ...
+        )).id()
+    });
 }
 
-// 系统：使用时按名称生成
-fn spawn_level_roles(container: Res<RoleBuilderContainer>, mut commands: Commands) {
+// 按名称构建
+fn spawn_hero(world: &mut World) {
+    let mut commands = Commands::new(world);
+    let container = world.resource::<RoleBuilderContainer>();
     let ctx = RoleBuilderContext {
-        commands: &mut commands,
         position: (0, 9),
-        parent: Some(level_entity),
+        parent: None,
     };
-    container.build("hero", ctx);
+    container.build("hero", &mut commands, ctx);
 }
 ```
 
@@ -83,9 +84,10 @@ fn spawn_level_roles(container: Res<RoleBuilderContainer>, mut commands: Command
 
 | 方法 | 签名 | 说明 |
 |---|---|---|
-| `new` | `fn new() -> Self` | 创建空的 `RoleBuilderContainer`。 |
-| `register` | `fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static)` | 注册一个命名构建器。 |
-| `build` | `fn build(&self, name: &str, ctx: RoleBuilderContext) -> Option<Entity>` | 按名称查找构建器并执行构建。未找到时返回 `None`。 |
+| `new` | `fn new() -> Self` | 创建空的容器。 |
+| `register` | `fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static)` | 从 `RoleBuilder` 实现注册。 |
+| `register_fn` | `fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)` | 直接注册闭包。 |
+| `build` | `fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity>` | 按名称查找并执行构建。 |
 
 ## 完整数据流
 
@@ -95,13 +97,10 @@ fn spawn_level_roles(container: Res<RoleBuilderContainer>, mut commands: Command
     ▼
 RoleBuilderContainer      ← Bevy Resource
     │
-    ├── "hero"        → Box<dyn RoleBuilder>  (PlayerBuilder)
-    ├── "npc_merchant" → Box<dyn RoleBuilder>  (NpcBuilder)
+    ├── "hero"        → Box<dyn Fn(&mut Commands, RoleBuilderContext) -> Entity>
+    ├── "npc_merchant" → ...
     └── ...
-        │
-        ▼ (通过名称查找并调用 build)
-    RoleBuilder::build(&self, ctx: RoleBuilderContext)
-        │
+        │  (按名称查找并调用闭包)
         ▼
     commands.spawn((Role, Sprite, Transform, ...))
         │
@@ -109,24 +108,8 @@ RoleBuilderContainer      ← Bevy Resource
     生成的角色实体
 ```
 
-## 与 RoleBuilder 的关系
-
-```
-RoleBuilder (trait)              — 定义构建接口
-    ▲
-    │ 实现
-    ├── PlayerBuilder
-    ├── NpcBuilder
-    └── ...
-    │
-RoleBuilderContainer (Resource)  — 管理构建器实例的注册表
-    │
-    ▼
-按名称调用 → RoleBuilder::build(&self, ctx)
-```
-
 ## 注意事项
 
-- `dyn RoleBuilder` 要求 `RoleBuilder` trait 是对象安全的（object-safe）。当前 `build(&self, ctx)` 签名满足此条件。
-- 容器本身不持有生成上下文，上下文由调用方在 `build` 时传入。
+- `Commands` 由 `build` 调用方传入，builder 内部只使用不持有。
+- `RoleBuilderContext` 是纯数据结构，不包含任何生命周期参数。
 - 注册时机建议在 `Startup` 系统或 `OnEnter` 系统中完成，避免运行时频繁注册。
