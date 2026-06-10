@@ -13,7 +13,6 @@ use bevy::prelude::*;
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Role>();
     app.register_type::<Archer>();
-    app.register_type::<archer::AttackRange>();
     app.register_type::<archer::AttackSpeed>();
     app.register_type::<archer::ProjectileDamage>();
     app.insert_resource(RoleBuilderContainer::new());

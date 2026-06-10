@@ -17,6 +17,7 @@
 | `World` | `World` | `Character`, `Enemy` | 世界与角色和敌人碰撞，不与自身碰撞 |
 | `Character` | `Character` | `World`, `Enemy` | 角色与世界和敌人碰撞，不与友方碰撞 |
 | `Enemy` | `Enemy` | `World`, `Character` | 敌人与世界和角色碰撞，不与其他敌人碰撞 |
+| 传感器（如攻击范围） | `Character` | `Enemy` | 只检测敌人，用于传感器类型的实体 |
 
 ## 使用方法
 
@@ -55,6 +56,9 @@ CollisionLayers::new(GamePhysicsLayer::Character, [GamePhysicsLayer::World]);
 
 // 敌人只与世界碰撞
 CollisionLayers::new(GamePhysicsLayer::Enemy, [GamePhysicsLayer::World]);
+
+// 攻击范围传感器只检测敌人
+CollisionLayers::new(GamePhysicsLayer::Character, [GamePhysicsLayer::Enemy]);
 ```
 
 ## Bit 值说明
@@ -76,3 +80,4 @@ CollisionLayers::new(GamePhysicsLayer::Enemy, [GamePhysicsLayer::World]);
 - `world_layers() -> CollisionLayers` —— 生成世界实体碰撞配置
 - `character_layers() -> CollisionLayers` —— 生成角色实体碰撞配置
 - `enemy_layers() -> CollisionLayers` —— 生成敌人实体碰撞配置
+- `detect_enemy_layers() -> CollisionLayers` —— 生成只检测敌人的传感器碰撞配置（所属层为 Character，仅过滤 Enemy）

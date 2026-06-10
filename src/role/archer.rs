@@ -6,14 +6,9 @@
 use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
-use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
+use crate::common::{attack_range, AttackRange, GamePhysicsLayer, VisualDisplayLayer};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext};
-
-/// Attack range in pixels.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Component)]
-pub struct AttackRange(pub f32);
 
 /// Attack interval in seconds.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
@@ -62,6 +57,13 @@ impl RoleBuilder for ArcherRoleBuilder {
             AttackSpeed(self.attack_speed),
             ProjectileDamage(self.projectile_damage),
         ));
+
+        entity.with_children(|parent| {
+            parent.spawn((
+                attack_range(self.attack_range, GamePhysicsLayer::detect_enemy_layers()),
+                Transform::default(),
+            ));
+        });
 
         if let Some(parent) = ctx.parent {
             entity.set_parent_in_place(parent);

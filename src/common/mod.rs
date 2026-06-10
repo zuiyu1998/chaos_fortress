@@ -2,12 +2,13 @@
 //!
 //! Defines shared types used across the game, such as rendering layers.
 
-use avian2d::prelude::{CollisionLayers, PhysicsLayer};
+use avian2d::prelude::{Collider, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<VisualDisplayLayer>();
     app.register_type::<GamePhysicsLayer>();
+    app.register_type::<AttackRange>();
 }
 
 /// A z-order layer for visual elements.
@@ -63,6 +64,43 @@ impl GamePhysicsLayer {
     pub fn enemy_layers() -> CollisionLayers {
         CollisionLayers::new(Self::Enemy, [Self::World, Self::Character])
     }
+
+    /// Returns [`CollisionLayers`] that only detects enemy entities.
+    ///
+    /// The entity belongs to the `Character` layer but only filters
+    /// for `Enemy`. Useful for sensors like attack range that should
+    /// only interact with enemies.
+    pub fn detect_enemy_layers() -> CollisionLayers {
+        CollisionLayers::new(Self::Character, [Self::Enemy])
+    }
+}
+
+/// Attack range in pixels.
+///
+/// Stores the maximum distance (in world pixels) at which this entity
+/// can attack a target.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct AttackRange(pub f32);
+
+/// Spawn an attack-range sensor.
+///
+/// Returns a bundle containing an [`AttackRange`] component, a
+/// [`Collider::circle`] sensor, and a [`Sensor`] marker.
+/// The caller is responsible for positioning this entity via a
+/// separate [`Transform`] component.
+///
+/// This sensor can be used to detect enemy entities entering the
+/// attack range via collision events.
+pub fn attack_range(range: f32, layers: CollisionLayers) -> impl Bundle {
+    (
+        Name::new(format!("AttackRange ({range:.1})")),
+        AttackRange(range),
+        Visibility::default(),
+        Collider::circle(range),
+        Sensor,
+        layers,
+    )
 }
 
 impl VisualDisplayLayer {
