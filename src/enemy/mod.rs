@@ -7,8 +7,12 @@ use bevy::prelude::*;
 use crate::common::VisualDisplayLayer;
 use crate::map::MapData;
 
-pub(super) fn plugin(app: &mut App) {
-    app.register_type::<Enemy>();
+pub(super) struct EnemyPlugin;
+
+impl Plugin for EnemyPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Enemy>();
+    }
 }
 
 /// A component that marks an entity as an "enemy".

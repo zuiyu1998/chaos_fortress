@@ -54,7 +54,7 @@ impl Plugin for AppPlugin {
             asset_tracking::plugin,
             audio::plugin,
             common::plugin,
-            enemy::plugin,
+            enemy::EnemyPlugin,
             level::plugin,
             map::plugin,
             role::plugin,
