@@ -5,7 +5,7 @@
 
 mod asset_tracking;
 mod audio;
-mod common;
+pub mod common;
 mod enemy;
 mod level;
 mod map;
