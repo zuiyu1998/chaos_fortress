@@ -3,9 +3,10 @@
 //! Defines the [`Role`] component, which marks an entity as a controllable
 //! character (player side).
 
+use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
-use crate::common::VisualDisplayLayer;
+use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 use crate::map::MapData;
 
 pub(super) fn plugin(app: &mut App) {
@@ -38,5 +39,8 @@ pub fn role(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl B
         sprite,
         Transform::from_xyz(x, y, VisualDisplayLayer::Character.z_value()),
         Visibility::default(),
+        RigidBody::Kinematic,
+        Collider::circle(cell_size / 2.0),
+        GamePhysicsLayer::character_layers(),
     )
 }
