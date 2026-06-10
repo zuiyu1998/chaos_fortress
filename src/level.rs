@@ -37,6 +37,7 @@ pub fn spawn_level(
     level_assets: Res<LevelAssets>,
     map_data: Res<MapData>,
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
+    role_container: Res<role::RoleBuilderContainer>,
 ) {
     for mut transform in &mut camera_query {
         transform.translation = Vec3::new(640.0, -360.0, 0.0);
@@ -49,12 +50,12 @@ pub fn spawn_level(
     ))
     .with_children(|level| {
         map::map(level, &map_data);
-        level.spawn(role::role(
-            map_data.cell_size,
+        role::role(
+            level,
+            &role_container,
             0,
             9,
-            Sprite::from_color(Color::BLACK, Vec2::splat(map_data.cell_size)),
-        ));
+        );
         level.spawn(enemy::enemy(
             map_data.cell_size,
             4,

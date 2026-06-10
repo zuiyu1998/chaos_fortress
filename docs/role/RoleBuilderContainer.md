@@ -28,11 +28,6 @@ impl RoleBuilderContainer {
     /// 从实现了 `RoleBuilder` 的类型注册。
     pub fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static) { /* ... */ }
 
-    /// 直接注册一个闭包构建器。
-    pub fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)
-    where F: for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity + Send + Sync + 'static
-    { /* ... */ }
-
     /// 按名称查找并执行构建。
     pub fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity> { /* ... */ }
 }
@@ -55,18 +50,8 @@ fn plugin(app: &mut App) {
 
 // 系统：注册构建器
 fn register_builders(mut container: ResMut<RoleBuilderContainer>) {
-    // 方式一：传入实现了 RoleBuilder 的类型
+    // 传入实现了 RoleBuilder 的类型
     container.register("hero", PlayerBuilder { name: "Hero".into() });
-
-    // 方式二：直接传入闭包
-    container.register_fn("npc", |commands, ctx| {
-        let (col, row) = ctx.position;
-        commands.spawn((
-            Name::new(format!("NPC ({col},{row})")),
-            Role,
-            // ...
-        )).id()
-    });
 }
 
 // 按名称构建
@@ -87,7 +72,6 @@ fn spawn_hero(world: &mut World) {
 |---|---|---|
 | `new` | `fn new() -> Self` | 创建容器并预注册默认的 `"archer"` 构建器。 |
 | `register` | `fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static)` | 从 `RoleBuilder` 实现注册。 |
-| `register_fn` | `fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)` | 直接注册闭包。 |
 | `build` | `fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity>` | 按名称查找并执行构建。 |
 
 ## 完整数据流
@@ -100,7 +84,6 @@ RoleBuilderContainer      ← Bevy Resource
     │
     ├── "archer"      → Box<dyn Fn(&mut Commands, RoleBuilderContext) -> Entity>（默认）
     ├── "hero"        → ...
-    ├── "npc_merchant" → ...
     └── ...
         │  (按名称查找并调用闭包)
         ▼

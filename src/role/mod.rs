@@ -8,10 +8,7 @@ pub mod archer;
 
 use std::collections::HashMap;
 
-use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
-
-use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Role>();
@@ -41,25 +38,25 @@ pub struct Role;
 #[reflect(Component)]
 pub struct Archer;
 
-/// Spawn a role sprite at a given grid position.
+/// Spawn a role entity as a child via [`ChildSpawnerCommands`] (a type alias for
+/// [`RelatedSpawnerCommands`]`<ChildOf>`).
 ///
-/// Returns a bundle containing a [`Role`] marker, a [`Sprite`], and a
-/// [`Transform`] positioned at the center of the given grid cell.
-/// The grid coordinate system matches [`map::map_cell`]: cell (0,0) is
-/// the top-left of the grid, and the grid is centered on its parent.
-pub fn role(cell_size: f32, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
-    let x = column as f32 * cell_size;
-    let y = -(row as f32 * cell_size);
-    (
-        Name::new(format!("Role ({column}, {row})")),
-        Role,
-        sprite,
-        Transform::from_xyz(x, y, VisualDisplayLayer::Character.z_value()),
-        Visibility::default(),
-        RigidBody::Kinematic,
-        Collider::circle(cell_size / 2.0),
-        GamePhysicsLayer::character_layers(),
-    )
+/// Uses the [`RoleBuilderContainer`] to look up the `"archer"` builder to generate
+/// an archer entity.
+pub fn role<'w>(
+    spawner: &mut ChildSpawnerCommands<'w>,
+    container: &RoleBuilderContainer,
+    column: u32,
+    row: u32,
+) -> Entity {
+    let ctx = RoleBuilderContext {
+        position: (column, row),
+        parent: Some(spawner.target_entity()),
+    };
+    let mut cmds = spawner.commands();
+    container
+        .build("archer", &mut cmds, ctx)
+        .expect("RoleBuilderContainer is missing the 'archer' builder")
 }
 
 /// Context for building a role entity.
@@ -126,17 +123,6 @@ impl RoleBuilderContainer {
             name,
             Box::new(move |commands, ctx| builder.build(commands, ctx)),
         );
-    }
-
-    /// Register a named builder closure directly.
-    ///
-    /// This is a convenience method for inline closures without defining
-    /// a named type implementing [`RoleBuilder`].
-    pub fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)
-    where
-        F: for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity + Send + Sync + 'static,
-    {
-        self.builders.insert(name.into(), Box::new(builder));
     }
 
     /// Look up a builder by name and execute it to spawn an entity.
