@@ -6,7 +6,6 @@ use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
 use bevy::prelude::*;
 
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
-use crate::map::MapData;
 
 pub(super) struct EnemyPlugin;
 
@@ -34,10 +33,9 @@ pub struct Enemy;
 /// [`LinearVelocity`]).
 /// The grid coordinate system matches [`map::map_cell`]: cell (0,0) is
 /// the top-left of the grid, and the grid is centered on its parent.
-pub fn enemy(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
-    let cell_size = map_data.cell_size;
-    let x = (column as f32 - (map_data.width as f32 - 1.0) / 2.0) * cell_size;
-    let y = -((row as f32 - (map_data.height as f32 - 1.0) / 2.0) * cell_size);
+pub fn enemy(cell_size: f32, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
+    let x = column as f32 * cell_size;
+    let y = -(row as f32 * cell_size);
     (
         Name::new(format!("Enemy ({column}, {row})")),
         Enemy,

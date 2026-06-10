@@ -63,7 +63,7 @@ pub fn map(parent: &mut ChildSpawnerCommands, map_data: &MapData) {
             for row in 0..map_data.height {
                 for col in 0..map_data.width {
                     cell_parent.spawn(map_cell(
-                        map_data,
+                        map_data.cell_size,
                         col,
                         row,
                         Sprite::from_color(
@@ -79,13 +79,10 @@ pub fn map(parent: &mut ChildSpawnerCommands, map_data: &MapData) {
 /// Spawn a cell sprite at a given grid position.
 ///
 /// Returns a bundle containing a [`Sprite`] and [`Transform`] positioned
-/// at the cell location relative to the map's origin. The grid is centered
-/// on the map entity (cell (0,0) is top-left).
-pub fn map_cell(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
-    let cell_size = map_data.cell_size;
-    // Center the grid on the map's origin
-    let x = (column as f32 - (map_data.width as f32 - 1.0) / 2.0) * cell_size;
-    let y = -((row as f32 - (map_data.height as f32 - 1.0) / 2.0) * cell_size);
+/// at the cell location relative to the map's origin (cell (0,0) is top-left).
+pub fn map_cell(cell_size: f32, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
+    let x = column as f32 * cell_size;
+    let y = -(row as f32 * cell_size);
     (
         Name::new(format!("MapCell ({column}, {row})")),
         sprite,
