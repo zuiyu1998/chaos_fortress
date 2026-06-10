@@ -39,11 +39,11 @@ pub fn spawn_level(
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
 ) {
     for mut transform in &mut camera_query {
-        transform.translation = Vec3::new(100.0, 100.0, 0.0);
+        transform.translation = Vec3::new(640.0, -360.0, 0.0);
     }
     commands.spawn((
         Name::new("Level"),
-        Transform::default(),
+        Transform::from_xyz(map_data.cell_size, 0.0, 0.0),
         Visibility::default(),
         DespawnOnExit(Screen::Gameplay),
     ))
@@ -51,8 +51,8 @@ pub fn spawn_level(
         map::map(level, &map_data);
         level.spawn(role::role(
             map_data.cell_size,
-            3,
-            5,
+            0,
+            9,
             Sprite::from_color(Color::BLACK, Vec2::splat(map_data.cell_size)),
         ));
         level.spawn(enemy::enemy(
