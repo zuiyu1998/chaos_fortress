@@ -40,6 +40,7 @@ impl RoleBuilderContainer {
 
 > 内部使用 `Box<dyn for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity>` 存储。
 > `Commands` 直接作为闭包参数，`RoleBuilderContext` 仅包含 `position` 和 `parent` 等纯数据。
+> `new()` 创建时已预注册一个名为 `"archer"` 的默认 [`ArcherRoleBuilder`](archer/ArcherRoleBuilder.md)。
 
 ## 使用方式
 
@@ -84,7 +85,7 @@ fn spawn_hero(world: &mut World) {
 
 | 方法 | 签名 | 说明 |
 |---|---|---|
-| `new` | `fn new() -> Self` | 创建空的容器。 |
+| `new` | `fn new() -> Self` | 创建容器并预注册默认的 `"archer"` 构建器。 |
 | `register` | `fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static)` | 从 `RoleBuilder` 实现注册。 |
 | `register_fn` | `fn register_fn<F>(&mut self, name: impl Into<String>, builder: F)` | 直接注册闭包。 |
 | `build` | `fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity>` | 按名称查找并执行构建。 |
@@ -97,7 +98,8 @@ fn spawn_hero(world: &mut World) {
     ▼
 RoleBuilderContainer      ← Bevy Resource
     │
-    ├── "hero"        → Box<dyn Fn(&mut Commands, RoleBuilderContext) -> Entity>
+    ├── "archer"      → Box<dyn Fn(&mut Commands, RoleBuilderContext) -> Entity>（默认）
+    ├── "hero"        → ...
     ├── "npc_merchant" → ...
     └── ...
         │  (按名称查找并调用闭包)

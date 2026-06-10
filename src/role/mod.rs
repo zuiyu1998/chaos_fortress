@@ -4,6 +4,8 @@
 //! character (player side), along with [`RoleBuilder`], [`RoleBuilderContext`],
 //! and [`RoleBuilderContainer`] for flexible role entity construction.
 
+pub mod archer;
+
 use std::collections::HashMap;
 
 use avian2d::prelude::{Collider, RigidBody};
@@ -13,6 +15,10 @@ use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Role>();
+    app.register_type::<Archer>();
+    app.register_type::<archer::AttackRange>();
+    app.register_type::<archer::AttackSpeed>();
+    app.register_type::<archer::ProjectileDamage>();
     app.insert_resource(RoleBuilderContainer::new());
 }
 
@@ -25,6 +31,15 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct Role;
+
+/// A component that marks an entity as an "archer" (ranged role variant).
+///
+/// Archer entities carry a [`Role`] marker in addition to this component,
+/// and typically have extra components for attack range, speed, and
+/// projectile damage.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct Archer;
 
 /// Spawn a role sprite at a given grid position.
 ///
@@ -84,11 +99,24 @@ pub struct RoleBuilderContainer {
 }
 
 impl RoleBuilderContainer {
-    /// Create an empty container.
+    /// Create a container pre-populated with default builders.
+    ///
+    /// Currently includes:
+    /// - `"archer"` — an [`ArcherRoleBuilder`] with default combat stats.
     pub fn new() -> Self {
-        Self {
+        let mut container = Self {
             builders: HashMap::new(),
-        }
+        };
+        container.register(
+            "archer",
+            archer::ArcherRoleBuilder {
+                name: "Archer".into(),
+                attack_range: 300.0,
+                attack_speed: 0.8,
+                projectile_damage: 15.0,
+            },
+        );
+        container
     }
 
     /// Register a named builder from a [`RoleBuilder`] implementor.

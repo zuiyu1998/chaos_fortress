@@ -9,7 +9,7 @@ pub mod common;
 mod enemy;
 mod level;
 mod map;
-mod role;
+pub mod role;
 #[cfg(feature = "dev")]
 mod dev_tools;
 mod menus;
