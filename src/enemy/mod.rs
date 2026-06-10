@@ -2,9 +2,10 @@
 //!
 //! Defines the [`Enemy`] component, which marks an entity as an enemy unit.
 
+use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
 use bevy::prelude::*;
 
-use crate::common::VisualDisplayLayer;
+use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 use crate::map::MapData;
 
 pub(super) struct EnemyPlugin;
@@ -27,8 +28,10 @@ pub struct Enemy;
 
 /// Spawn an enemy sprite at a given grid position.
 ///
-/// Returns a bundle containing an [`Enemy`] marker, a [`Sprite`], and a
-/// [`Transform`] positioned at the center of the given grid cell.
+/// Returns a bundle containing an [`Enemy`] marker, a [`Sprite`], a
+/// [`Transform`] positioned at the center of the given grid cell, and
+/// physics components ([`RigidBody::Dynamic`], [`Collider`], [`CollisionLayers`],
+/// [`LinearVelocity`]).
 /// The grid coordinate system matches [`map::map_cell`]: cell (0,0) is
 /// the top-left of the grid, and the grid is centered on its parent.
 pub fn enemy(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl Bundle {
@@ -41,5 +44,9 @@ pub fn enemy(map_data: &MapData, column: u32, row: u32, sprite: Sprite) -> impl 
         sprite,
         Transform::from_xyz(x, y, VisualDisplayLayer::Character.z_value()),
         Visibility::default(),
+        RigidBody::Dynamic,
+        Collider::circle(cell_size / 2.0),
+        GamePhysicsLayer::enemy_layers(),
+        LinearVelocity(Vec2::new(0.0, -10.0)),
     )
 }

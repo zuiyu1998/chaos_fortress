@@ -17,6 +17,7 @@ mod screens;
 mod theme;
 
 use avian2d::PhysicsPlugins;
+use avian2d::prelude::Gravity;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 
 fn main() -> AppExit {
@@ -64,6 +65,9 @@ impl Plugin for AppPlugin {
             screens::plugin,
             theme::plugin,
         ));
+
+        // Set gravity to zero so entities only move when given explicit velocity.
+        app.insert_resource(Gravity::ZERO);
 
         // Order new `AppSystems` variants by adding them here:
         app.configure_sets(
