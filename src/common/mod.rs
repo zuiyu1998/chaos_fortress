@@ -2,7 +2,7 @@
 //!
 //! Defines shared types used across the game, such as rendering layers.
 
-use avian2d::prelude::{Collider, CollisionLayers, PhysicsLayer, Sensor};
+use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
 
 pub(super) fn plugin(app: &mut App) {
@@ -117,6 +117,7 @@ pub fn attack_range(range: f32, layers: CollisionLayers) -> impl Bundle {
     (
         Name::new(format!("AttackRange ({range:.1})")),
         AttackRange(range),
+        CollisionEventsEnabled,
         Visibility::default(),
         Collider::circle(range),
         Sensor,
