@@ -10,6 +10,7 @@ pub(super) fn plugin(app: &mut App) {
     app.register_type::<GamePhysicsLayer>();
     app.register_type::<AttackRange>();
     app.register_type::<CoolingTimer>();
+    app.register_type::<EnemyTarget>();
 }
 
 /// A z-order layer for visual elements.
@@ -85,6 +86,14 @@ impl GamePhysicsLayer {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component)]
 pub struct AttackRange(pub f32);
+
+/// Current enemy target, may be empty.
+///
+/// Stores the entity of the enemy that this entity has currently locked
+/// as a target. `None` means no target is acquired.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Component)]
+pub struct EnemyTarget(pub Option<Entity>);
 
 /// Cooldown timer.
 ///

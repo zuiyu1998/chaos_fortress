@@ -8,10 +8,21 @@ use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
 use crate::bullet::{bullet, BulletPosition, BulletPositionTarget};
-use crate::common::{attack_range, AttackRange, CoolingTimer, GamePhysicsLayer, VisualDisplayLayer};
+use crate::common::{attack_range, AttackRange, CoolingTimer, EnemyTarget, GamePhysicsLayer, VisualDisplayLayer};
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
+
+/// Marker component inserted on the archer entity while in Idle state.
+///
+/// Uses gearbox's [`StateComponent`] mechanism: when the state machine
+/// enters the `Idle` substate, `ArcherIdle` is automatically inserted on
+/// the state machine root (archer) entity; when leaving Idle, it is
+/// automatically removed. Query `(With<Archer>, With<ArcherIdle>)` to
+/// find archers currently in Idle state.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct ArcherIdle;
 
 /// Message for transitioning an archer from Idle to Combat state.
 ///
@@ -44,6 +55,8 @@ impl Plugin for ArcherPlugin {
         app.register_type::<AttackSpeed>();
         app.register_type::<ProjectileDamage>();
         app.register_type::<CoolingTimer>();
+        app.register_type::<ArcherIdle>();
+        app.register_state_component::<ArcherIdle>();
 
         let mut container = app.world_mut().resource_mut::<RoleBuilderContainer>();
         container.register(
@@ -60,7 +73,11 @@ impl Plugin for ArcherPlugin {
 
         app.add_systems(
             Update,
-            run_skill.run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
+            (
+                run_skill,
+                detect_target_when_idle,
+            )
+                .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
 }
@@ -97,7 +114,7 @@ pub struct ArcherRoleBuilder {
 /// external systems sending gearbox messages.
 pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
     let idle = commands
-        .spawn_substate(machine, Name::new("Idle"))
+        .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
         .id();
     let combat = commands
         .spawn_substate(machine, Name::new("Combat"))
@@ -134,6 +151,7 @@ impl RoleBuilder for ArcherRoleBuilder {
             AttackSpeed(self.attack_speed),
             ProjectileDamage(self.projectile_damage),
             CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
+            EnemyTarget(None),
         ));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;
@@ -177,6 +195,26 @@ pub fn run_skill(
             if let Ok(transform) = bullet_position_query.get(target.0) {
                 let position = transform.translation().truncate();
                 commands.spawn(bullet(position, Vec2::new(0.0, 200.0)));
+            }
+        }
+    }
+}
+
+/// When an archer is in Idle state and has acquired an enemy target,
+/// send an [`Idle2Combat`] message to transition the state machine to Combat.
+///
+/// Queries active Idle substates via `StateComponent<ArcherIdle>` + [`Active`],
+/// reads `Active.machine` to get the archer entity, then checks its
+/// [`EnemyTarget`].
+pub fn detect_target_when_idle(
+    idle_states: Query<&Active, (With<StateComponent<ArcherIdle>>, With<Active>)>,
+    archers: Query<&EnemyTarget, With<Archer>>,
+    mut writer: MessageWriter<Idle2Combat>,
+) {
+    for active in &idle_states {
+        if let Ok(target) = archers.get(active.machine) {
+            if target.0.is_some() {
+                writer.write(Idle2Combat { machine: active.machine });
             }
         }
     }

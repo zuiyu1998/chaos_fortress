@@ -136,7 +136,7 @@ use bevy::prelude::*;
 pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
     // 子状态实体
     let idle = commands
-        .spawn_substate(machine, Name::new("Idle"))
+        .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
         .id();
     let combat = commands
         .spawn_substate(machine, Name::new("Combat"))
