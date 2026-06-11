@@ -6,6 +6,7 @@
 use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
+use crate::bullet::BulletPosition;
 use crate::common::{attack_range, AttackRange, GamePhysicsLayer, VisualDisplayLayer};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext};
@@ -61,6 +62,10 @@ impl RoleBuilder for ArcherRoleBuilder {
         entity.with_children(|parent| {
             parent.spawn((
                 attack_range(self.attack_range, GamePhysicsLayer::detect_enemy_layers()),
+                Transform::default(),
+            ));
+            parent.spawn((
+                BulletPosition,
                 Transform::default(),
             ));
         });
