@@ -7,7 +7,7 @@ use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
 use crate::bullet::BulletPosition;
-use crate::common::{attack_range, AttackRange, GamePhysicsLayer, VisualDisplayLayer};
+use crate::common::{attack_range, AttackRange, CoolingTimer, GamePhysicsLayer, VisualDisplayLayer};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
 
@@ -82,6 +82,7 @@ impl RoleBuilder for ArcherRoleBuilder {
             AttackRange(self.attack_range),
             AttackSpeed(self.attack_speed),
             ProjectileDamage(self.projectile_damage),
+            CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
         ));
 
         entity.with_children(|parent| {

@@ -9,6 +9,7 @@ pub(super) fn plugin(app: &mut App) {
     app.register_type::<VisualDisplayLayer>();
     app.register_type::<GamePhysicsLayer>();
     app.register_type::<AttackRange>();
+    app.register_type::<CoolingTimer>();
 }
 
 /// A z-order layer for visual elements.
@@ -84,6 +85,24 @@ impl GamePhysicsLayer {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Component)]
 pub struct AttackRange(pub f32);
+
+/// Cooldown timer.
+///
+/// Stores a Bevy [`Timer`] that counts down cooldown duration
+/// (e.g. between attacks). Use [`TimerMode::Once`] for single-shot
+/// cooldowns.
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct CoolingTimer(pub Timer);
+
+/// Tick all [`CoolingTimer`] components each frame.
+///
+/// Advances every entity's cooldown timer by [`Time::delta`].
+pub fn tick_all(time: Res<Time>, mut query: Query<&mut CoolingTimer>) {
+    for mut timer in &mut query {
+        timer.0.tick(time.delta());
+    }
+}
 
 /// Spawn an attack-range sensor.
 ///

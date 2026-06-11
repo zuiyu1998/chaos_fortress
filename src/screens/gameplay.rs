@@ -2,6 +2,7 @@
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
+use crate::common::tick_all;
 use crate::{Pause, level::spawn_level, menus::Menu, screens::Screen};
 
 pub(super) fn plugin(app: &mut App) {
@@ -21,6 +22,7 @@ pub(super) fn plugin(app: &mut App) {
                     .and(not(in_state(Menu::None)))
                     .and(input_just_pressed(KeyCode::KeyP)),
             ),
+            tick_all.run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         ),
     );
     app.add_systems(OnExit(Screen::Gameplay), (close_menu, unpause));
