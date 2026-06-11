@@ -7,11 +7,14 @@ use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
-use crate::bullet::{bullet, BulletPosition, BulletPositionTarget};
-use crate::common::{attack_range, AttackRange, CoolingTimer, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer};
+use crate::bullet::{BulletPosition, BulletPositionTarget, bullet};
+use crate::common::{
+    AttackRange, CoolingTimer, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer,
+    attack_range,
+};
 use crate::{Pause, screens::Screen};
 
-use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
+use super::{Archer, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -23,6 +26,17 @@ use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer}
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct ArcherIdle;
+
+/// Marker component inserted on the archer entity while in Combat state.
+///
+/// Uses gearbox's [`StateComponent`] mechanism: when the state machine
+/// enters the `Combat` substate, `ArcherCombat` is automatically inserted on
+/// the state machine root (archer) entity; when leaving Combat, it is
+/// automatically removed. Query `(With<Archer>, With<ArcherCombat>)` to
+/// find archers currently in Combat state.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct ArcherCombat;
 
 /// Message for transitioning an archer from Idle to Combat state.
 ///
@@ -57,6 +71,8 @@ impl Plugin for ArcherPlugin {
         app.register_type::<CoolingTimer>();
         app.register_type::<ArcherIdle>();
         app.register_state_component::<ArcherIdle>();
+        app.register_type::<ArcherCombat>();
+        app.register_state_component::<ArcherCombat>();
 
         let mut container = app.world_mut().resource_mut::<RoleBuilderContainer>();
         container.register(
@@ -73,10 +89,7 @@ impl Plugin for ArcherPlugin {
 
         app.add_systems(
             Update,
-            (
-                run_skill,
-                detect_target_when_idle,
-            )
+            (run_skill, detect_target_when_idle)
                 .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
@@ -116,7 +129,7 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
         .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
         .id();
     let combat = commands
-        .spawn_substate(machine, Name::new("Combat"))
+        .spawn_substate(machine, (Name::new("Combat"), StateComponent(ArcherCombat)))
         .id();
 
     // Message-driven transition: Idle → Combat (triggered by external systems)
@@ -158,11 +171,13 @@ impl RoleBuilder for ArcherRoleBuilder {
                 attack_range(self.attack_range, GamePhysicsLayer::detect_enemy_layers()),
                 Transform::default(),
             ));
-            bullet_position_entity = parent.spawn((
-                Name::new("BulletPosition"),
-                BulletPosition,
-                Transform::default(),
-            )).id();
+            bullet_position_entity = parent
+                .spawn((
+                    Name::new("BulletPosition"),
+                    BulletPosition,
+                    Transform::default(),
+                ))
+                .id();
         });
         entity.insert(BulletPositionTarget(bullet_position_entity));
 
@@ -178,21 +193,43 @@ impl RoleBuilder for ArcherRoleBuilder {
 
 /// System that drives archers to fire bullets automatically.
 ///
-/// Queries all entities with [`Archer`] and [`CoolingTimer`]. When the timer
+/// Only runs for archers currently in `Combat` state (detected via
+/// `StateComponent<ArcherCombat>` + `Active`). When the cooldown timer
 /// has just finished, it resets the cooldown, reads the [`BulletPosition`]
-/// child entity's world position, and spawns a bullet flying upward.
+/// child entity's world position, and spawns a bullet flying toward the
+/// current [`EnemyTarget`].
 pub fn run_skill(
     mut commands: Commands,
-    mut query: Query<(&mut CoolingTimer, &BulletPositionTarget), With<Archer>>,
+    combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, With<Active>)>,
+    mut archers: Query<
+        (
+            &mut CoolingTimer,
+            &BulletPositionTarget,
+            &GlobalTransform,
+            &EnemyTarget,
+        ),
+        With<Archer>,
+    >,
     bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
+    enemy_transform_query: Query<&GlobalTransform>,
 ) {
-    for (mut timer, target) in &mut query {
-        if timer.0.just_finished() {
-            timer.0.reset();
+    for active in &combat_states {
+        if let Ok((mut timer, target, _archer_transform, enemy_target)) =
+            archers.get_mut(active.machine)
+        {
+            if timer.0.just_finished() {
+                timer.0.reset();
 
-            if let Ok(transform) = bullet_position_query.get(target.0) {
-                let position = transform.translation().truncate();
-                commands.spawn(bullet(position, Vec2::new(0.0, 200.0)));
+                if let Some(enemy) = enemy_target.0 {
+                    if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
+                        if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
+                            let position = bullet_transform.translation().truncate();
+                            let direction = (enemy_transform.translation().truncate() - position)
+                                .normalize_or_zero();
+                            commands.spawn(bullet(position, direction * 200.0));
+                        }
+                    }
+                }
             }
         }
     }
@@ -212,7 +249,9 @@ pub fn detect_target_when_idle(
     for active in &idle_states {
         if let Ok(target) = archers.get(active.machine) {
             if target.0.is_some() {
-                writer.write(Idle2Combat { machine: active.machine });
+                writer.write(Idle2Combat {
+                    machine: active.machine,
+                });
             }
         }
     }

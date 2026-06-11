@@ -137,7 +137,7 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
         .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
         .id();
     let combat = commands
-        .spawn_substate(machine, Name::new("Combat"))
+        .spawn_substate(machine, (Name::new("Combat"), StateComponent(ArcherCombat)))
         .id();
 
     // 消息驱动转换：Idle → Combat

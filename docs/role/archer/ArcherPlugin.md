@@ -57,21 +57,30 @@ impl Plugin for ArcherPlugin {
 
 ### run_skill
 
-`run_skill` 是一个系统函数，用于驱动弓箭手自动发射子弹。它检索所有携带 `Archer` 标记的实体，当实体的 `CoolingTimer` 冷却完毕时，生成一颗子弹。
+`run_skill` 是一个系统函数，用于驱动弓箭手自动发射子弹。它仅对当前处于 **Combat** 状态的弓箭手生效（通过 `StateComponent<ArcherCombat>` + `Active` 检测），当实体的 `CoolingTimer` 冷却完毕时，朝当前 [`EnemyTarget`](../../common/EnemyTarget.md) 的方向生成一颗子弹。
 
 ```rust
 pub fn run_skill(
     mut commands: Commands,
-    mut query: Query<(&mut CoolingTimer, &BulletPositionTarget), With<Archer>>,
+    combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, With<Active>)>,
+    mut archers: Query<(&mut CoolingTimer, &BulletPositionTarget, &GlobalTransform, &EnemyTarget), With<Archer>>,
     bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
+    enemy_transform_query: Query<&GlobalTransform>,
 ) {
-    for (mut timer, target) in &mut query {
-        if timer.0.just_finished() {
-            timer.0.reset();
+    for active in &combat_states {
+        if let Ok((mut timer, target, _archer_transform, enemy_target)) = archers.get_mut(active.machine) {
+            if timer.0.just_finished() {
+                timer.0.reset();
 
-            if let Ok(transform) = bullet_position_query.get(target.0) {
-                let position = transform.translation().truncate();
-                commands.spawn(bullet(position, Vec2::new(0.0, 200.0)));
+                if let Some(enemy) = enemy_target.0 {
+                    if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
+                        if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
+                            let position = bullet_transform.translation().truncate();
+                            let direction = (enemy_transform.translation().truncate() - position).normalize_or_zero();
+                            commands.spawn(bullet(position, direction * 200.0));
+                        }
+                    }
+                }
             }
         }
     }
@@ -96,8 +105,10 @@ app.add_systems(
 | 组件 | 说明 |
 |------|------|
 | `Archer` | 标记实体为弓箭手，用于系统查询筛选 |
+| `ArcherCombat` | 标记弓箭手处于 Combat 状态（由 `StateComponent` 自动管理） |
 | `CoolingTimer` | 冷却计时器，冷却完毕时触发攻击。每次攻击后需调用 `.reset()` 重置 |
 | `BulletPositionTarget` | 指向 `BulletPosition` 子实体的 Entity 引用，用于快速获取子弹生成坐标 |
+| `EnemyTarget` | 当前锁定的敌人，子弹将朝该敌人方向飞行 |
 | `bullet()` | 生成子弹实体，包含 `Sprite(2×16)`、物理组件、`LinearVelocity` 等 |
 
 ### detect_target_when_idle
