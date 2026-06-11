@@ -5,12 +5,32 @@
 
 use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
+use bevy_gearbox::prelude::*;
 
 use crate::bullet::{bullet, BulletPosition, BulletPositionTarget};
 use crate::common::{attack_range, AttackRange, CoolingTimer, GamePhysicsLayer, VisualDisplayLayer};
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
+
+/// Message for transitioning an archer from Idle to Combat state.
+///
+/// External systems write this message to trigger the Idle → Combat
+/// transition on a state machine. The `target` field identifies which
+/// state machine entity the message is addressed to.
+#[derive(Message, Clone, TypePath)]
+pub struct Idle2Combat {
+    /// The target state machine entity.
+    pub machine: Entity,
+}
+
+impl GearboxMessage for Idle2Combat {
+    type Validator = AcceptAll;
+
+    fn target(&self) -> Entity {
+        self.machine
+    }
+}
 
 /// Plugin for registering archer-related components.
 ///
@@ -35,6 +55,8 @@ impl Plugin for ArcherPlugin {
                 projectile_damage: 15.0,
             },
         );
+
+        app.register_transition::<Idle2Combat>();
 
         app.add_systems(
             Update,
@@ -66,6 +88,28 @@ pub struct ArcherRoleBuilder {
     pub attack_speed: f32,
     /// Projectile damage value.
     pub projectile_damage: f32,
+}
+
+/// Attach a state machine to an archer entity with Idle and Combat states.
+///
+/// The state machine starts in `Idle`. A Combat → Idle automatic transition
+/// is set up via `AlwaysEdge`; Idle → Combat transitions are triggered by
+/// external systems sending gearbox messages.
+pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
+    let idle = commands
+        .spawn_substate(machine, Name::new("Idle"))
+        .id();
+    let combat = commands
+        .spawn_substate(machine, Name::new("Combat"))
+        .id();
+
+    // Message-driven transition: Idle → Combat (triggered by external systems)
+    commands.spawn_transition::<Idle2Combat>(idle, combat);
+    // Automatic transition: Combat → Idle (back to rest when conditions clear)
+    commands.spawn_transition_always(combat, idle);
+
+    // Initialize the state machine, starting in Idle
+    commands.entity(machine).init_state_machine(idle);
 }
 
 impl RoleBuilder for ArcherRoleBuilder {
@@ -110,7 +154,9 @@ impl RoleBuilder for ArcherRoleBuilder {
             entity.set_parent_in_place(parent);
         }
 
-        entity.id()
+        let id = entity.id();
+        setup_state_machine(id, commands);
+        id
     }
 }
 
