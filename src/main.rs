@@ -5,6 +5,7 @@
 
 mod asset_tracking;
 mod audio;
+mod bullet;
 pub mod common;
 mod enemy;
 mod level;
@@ -56,6 +57,7 @@ impl Plugin for AppPlugin {
             PhysicsPlugins::default(),
             asset_tracking::plugin,
             audio::plugin,
+            bullet::plugin,
             common::plugin,
             enemy::EnemyPlugin,
             level::plugin,
