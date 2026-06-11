@@ -23,6 +23,8 @@ pub enum VisualDisplayLayer {
     Terrain,
     /// Character layer — roles, enemies, interactive units (z = 1.0)
     Character,
+    /// Bullet layer — projectiles, arrows, magic bolts (z = 2.0)
+    Bullet,
 }
 
 /// A physics collision layer for determining which entities interact.
@@ -111,6 +113,7 @@ impl VisualDisplayLayer {
         match self {
             VisualDisplayLayer::Terrain => 0.0,
             VisualDisplayLayer::Character => 1.0,
+            VisualDisplayLayer::Bullet => 2.0,
         }
     }
 }

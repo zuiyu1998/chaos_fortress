@@ -8,10 +8,12 @@
 |--------|-------------|------|
 | `Terrain` | `0.0` | 地形层，包含地图格子、地形贴图等 |
 | `Character` | `1.0` | 人物层，包含角色、敌人等可交互单位 |
+| `Bullet` | `2.0` | 子弹层，包含箭矢、法术弹等飞行物 |
 
 ## 层级规则
 
 - `Character` 的 f32 值 **大于** `Terrain` 的值，因此角色始终渲染在地形之上。
+- `Bullet` 的 f32 值 **大于** `Character` 的值，因此子弹始终渲染在角色/敌人之上。
 - 预留数值间隔便于后续在两层之间插入新的中间层（如特效、高亮框等）。
 
 ## 用途
@@ -22,9 +24,11 @@
 // 示例（伪代码）：
 Transform::from_xyz(x, y, VisualDisplayLayer::Terrain as f32)
 Transform::from_xyz(x, y, VisualDisplayLayer::Character as f32)
+Transform::from_xyz(x, y, VisualDisplayLayer::Bullet as f32)
 ```
 
 ## 与现有模块的关系
 
 - **地图模块**：`map_cell` 生成的地图格子使用 `Terrain` 层。
 - **角色模块**：`role` 生成的角色精灵使用 `Character` 层。
+- **子弹模块**：`bullet` 生成的子弹使用 `Bullet` 层，确保子弹渲染在角色和敌人之上。

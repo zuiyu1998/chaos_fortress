@@ -3,7 +3,10 @@
 //! Defines the [`Bullet`] component, which marks an entity as a projectile
 //! (bullet) that can collide with enemies and deal damage.
 
+use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
 use bevy::prelude::*;
+
+use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Bullet>();
@@ -19,3 +22,23 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct Bullet;
+
+/// Spawn a bullet at a given position with a given velocity.
+///
+/// Returns a bundle containing a [`Bullet`] marker, a [`Sprite`] of
+/// 2×16 pixels (width × height), a [`Transform`] positioned at `position`,
+/// and physics components ([`RigidBody::Dynamic`], [`Collider::rectangle`],
+/// [`CollisionLayers`], [`LinearVelocity`]).
+pub fn bullet(position: Vec2, velocity: Vec2) -> impl Bundle {
+    (
+        Name::new("Bullet"),
+        Bullet,
+        Sprite::from_color(Color::srgb(1.0, 0.8, 0.0), Vec2::new(2.0, 16.0)),
+        Transform::from_xyz(position.x, position.y, VisualDisplayLayer::Bullet.z_value()),
+        Visibility::default(),
+        RigidBody::Dynamic,
+        Collider::rectangle(2.0, 16.0),
+        GamePhysicsLayer::character_layers(),
+        LinearVelocity(velocity),
+    )
+}
