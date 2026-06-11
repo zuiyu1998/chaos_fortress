@@ -6,8 +6,9 @@
 use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
-use crate::bullet::BulletPosition;
+use crate::bullet::{bullet, BulletPosition, BulletPositionTarget};
 use crate::common::{attack_range, AttackRange, CoolingTimer, GamePhysicsLayer, VisualDisplayLayer};
+use crate::{Pause, screens::Screen};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
 
@@ -22,6 +23,7 @@ impl Plugin for ArcherPlugin {
         app.register_type::<Archer>();
         app.register_type::<AttackSpeed>();
         app.register_type::<ProjectileDamage>();
+        app.register_type::<CoolingTimer>();
 
         let mut container = app.world_mut().resource_mut::<RoleBuilderContainer>();
         container.register(
@@ -32,6 +34,11 @@ impl Plugin for ArcherPlugin {
                 attack_speed: 0.8,
                 projectile_damage: 15.0,
             },
+        );
+
+        app.add_systems(
+            Update,
+            run_skill.run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
 }
@@ -85,22 +92,46 @@ impl RoleBuilder for ArcherRoleBuilder {
             CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
         ));
 
+        let mut bullet_position_entity = Entity::PLACEHOLDER;
         entity.with_children(|parent| {
             parent.spawn((
                 attack_range(self.attack_range, GamePhysicsLayer::detect_enemy_layers()),
                 Transform::default(),
             ));
-            parent.spawn((
+            bullet_position_entity = parent.spawn((
                 Name::new("BulletPosition"),
                 BulletPosition,
                 Transform::default(),
-            ));
+            )).id();
         });
+        entity.insert(BulletPositionTarget(bullet_position_entity));
 
         if let Some(parent) = ctx.parent {
             entity.set_parent_in_place(parent);
         }
 
         entity.id()
+    }
+}
+
+/// System that drives archers to fire bullets automatically.
+///
+/// Queries all entities with [`Archer`] and [`CoolingTimer`]. When the timer
+/// has just finished, it resets the cooldown, reads the [`BulletPosition`]
+/// child entity's world position, and spawns a bullet flying upward.
+pub fn run_skill(
+    mut commands: Commands,
+    mut query: Query<(&mut CoolingTimer, &BulletPositionTarget), With<Archer>>,
+    bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
+) {
+    for (mut timer, target) in &mut query {
+        if timer.0.just_finished() {
+            timer.0.reset();
+
+            if let Ok(transform) = bullet_position_query.get(target.0) {
+                let position = transform.translation().truncate();
+                commands.spawn(bullet(position, Vec2::new(0.0, 200.0)));
+            }
+        }
     }
 }

@@ -11,6 +11,7 @@ use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Bullet>();
     app.register_type::<BulletPosition>();
+    app.register_type::<BulletPositionTarget>();
 }
 
 /// A component that marks an entity as a "bullet" (projectile).
@@ -33,6 +34,15 @@ pub struct Bullet;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct BulletPosition;
+
+/// A reference to a [`BulletPosition`] entity.
+///
+/// Stores an [`Entity`] that points to a target entity carrying the
+/// [`BulletPosition`] component. Used at runtime to retrieve the
+/// world position of the bullet's origin.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct BulletPositionTarget(pub Entity);
 
 /// Spawn a bullet at a given position with a given velocity.
 ///
