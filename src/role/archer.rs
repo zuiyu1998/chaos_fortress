@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
 use crate::bullet::{bullet, BulletPosition, BulletPositionTarget};
-use crate::common::{attack_range, AttackRange, CoolingTimer, EnemyTarget, GamePhysicsLayer, VisualDisplayLayer};
+use crate::common::{attack_range, AttackRange, CoolingTimer, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer};
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
@@ -63,7 +63,7 @@ impl Plugin for ArcherPlugin {
             "archer",
             ArcherRoleBuilder {
                 name: "Archer".into(),
-                attack_range: 300.0,
+                attack_range: 600.0,
                 attack_speed: 0.8,
                 projectile_damage: 15.0,
             },
@@ -109,9 +109,8 @@ pub struct ArcherRoleBuilder {
 
 /// Attach a state machine to an archer entity with Idle and Combat states.
 ///
-/// The state machine starts in `Idle`. A Combat → Idle automatic transition
-/// is set up via `AlwaysEdge`; Idle → Combat transitions are triggered by
-/// external systems sending gearbox messages.
+/// The state machine starts in `Idle`. Idle → Combat transitions are
+/// triggered by external systems sending [`Idle2Combat`] messages.
 pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
     let idle = commands
         .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
@@ -122,8 +121,6 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
 
     // Message-driven transition: Idle → Combat (triggered by external systems)
     commands.spawn_transition::<Idle2Combat>(idle, combat);
-    // Automatic transition: Combat → Idle (back to rest when conditions clear)
-    commands.spawn_transition_always(combat, idle);
 
     // Initialize the state machine, starting in Idle
     commands.entity(machine).init_state_machine(idle);
@@ -152,6 +149,7 @@ impl RoleBuilder for ArcherRoleBuilder {
             ProjectileDamage(self.projectile_damage),
             CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
             EnemyTarget(None),
+            EnemyTargetList(Vec::new()),
         ));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;

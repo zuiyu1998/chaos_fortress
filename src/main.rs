@@ -62,7 +62,7 @@ impl Plugin for AppPlugin {
             enemy::EnemyPlugin,
             level::plugin,
             map::plugin,
-            role::plugin,
+            role::RolePlugin,
             #[cfg(feature = "dev")]
             dev_tools::plugin,
             menus::plugin,

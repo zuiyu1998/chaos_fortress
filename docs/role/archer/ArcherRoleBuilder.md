@@ -128,13 +128,11 @@ pub struct ProjectileDamage(pub f32);
 use bevy_gearbox::prelude::*;
 use bevy::prelude::*;
 
-/// 为弓箭手实体附加状态机组件。
+/// 为弓箭手实体附加状态机组件，包含 Idle 和 Combat 两个子状态。
 ///
-/// 调用此函数后，实体会获得 `StateMachine` 组件，并添加
-/// Idle / Combat 两个子状态实体及两者间的自动过渡。
-/// 状态机起始状态为 `Idle`。
+/// 状态机起始状态为 `Idle`。Idle → Combat 的转换通过外部系统
+/// 发送 [`Idle2Combat`] 消息触发。
 pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
-    // 子状态实体
     let idle = commands
         .spawn_substate(machine, (Name::new("Idle"), StateComponent(ArcherIdle)))
         .id();
@@ -142,8 +140,8 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
         .spawn_substate(machine, Name::new("Combat"))
         .id();
 
-    // 自动过渡：Combat → Idle（条件满足后返回静止状态）
-    commands.spawn_transition_always(combat, idle);
+    // 消息驱动转换：Idle → Combat
+    commands.spawn_transition::<Idle2Combat>(idle, combat);
 
     // 初始化状态机，起始状态为 Idle
     commands.entity(machine).init_state_machine(idle);
@@ -157,7 +155,7 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
 | `Idle` | 静止状态，待机巡逻或等待目标 |
 | `Combat` | 战斗状态，执行攻击行为 |
 
-过渡使用 `AlwaysEdge`（由 `spawn_transition_always` 创建），从 Combat 回到 Idle，条件由响应系统驱动。Idle → Combat 的切换由外部系统通过发送消息触发。
+Idle → Combat 的切换通过外部系统发送 [`Idle2Combat`](Idle2Combat.md) 消息触发。Combat → Idle 的返回由外部系统后续酌情处理。
 
 > 状态机并非 `ArcherRoleBuilder::build` 的默认行为——`setup_state_machine` 旨在作为**可选的初始化步骤**，可在 `build` 返回实体后独立调用，或在专用的 spawn 系统中组合使用。
 
