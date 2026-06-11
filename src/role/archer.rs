@@ -9,7 +9,32 @@ use bevy::prelude::*;
 use crate::bullet::BulletPosition;
 use crate::common::{attack_range, AttackRange, GamePhysicsLayer, VisualDisplayLayer};
 
-use super::{Archer, Role, RoleBuilder, RoleBuilderContext};
+use super::{Archer, Role, RoleBuilder, RoleBuilderContext, RoleBuilderContainer};
+
+/// Plugin for registering archer-related components.
+///
+/// Registers [`Archer`], [`AttackSpeed`], and [`ProjectileDamage`] with
+/// Bevy's reflection system.
+pub struct ArcherPlugin;
+
+impl Plugin for ArcherPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Archer>();
+        app.register_type::<AttackSpeed>();
+        app.register_type::<ProjectileDamage>();
+
+        let mut container = app.world_mut().resource_mut::<RoleBuilderContainer>();
+        container.register(
+            "archer",
+            ArcherRoleBuilder {
+                name: "Archer".into(),
+                attack_range: 300.0,
+                attack_speed: 0.8,
+                projectile_damage: 15.0,
+            },
+        );
+    }
+}
 
 /// Attack interval in seconds.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
@@ -65,6 +90,7 @@ impl RoleBuilder for ArcherRoleBuilder {
                 Transform::default(),
             ));
             parent.spawn((
+                Name::new("BulletPosition"),
                 BulletPosition,
                 Transform::default(),
             ));

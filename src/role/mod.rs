@@ -12,10 +12,8 @@ use bevy::prelude::*;
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Role>();
-    app.register_type::<Archer>();
-    app.register_type::<archer::AttackSpeed>();
-    app.register_type::<archer::ProjectileDamage>();
     app.insert_resource(RoleBuilderContainer::new());
+    app.add_plugins(archer::ArcherPlugin);
 }
 
 /// A component that marks an entity as a "role" (character).
@@ -95,24 +93,14 @@ pub struct RoleBuilderContainer {
 }
 
 impl RoleBuilderContainer {
-    /// Create a container pre-populated with default builders.
+    /// Create an empty container.
     ///
-    /// Currently includes:
-    /// - `"archer"` — an [`ArcherRoleBuilder`] with default combat stats.
+    /// Builders must be registered via [`register`](RoleBuilderContainer::register)
+    /// by individual role plugins (e.g. `ArcherPlugin`).
     pub fn new() -> Self {
-        let mut container = Self {
+        Self {
             builders: HashMap::new(),
-        };
-        container.register(
-            "archer",
-            archer::ArcherRoleBuilder {
-                name: "Archer".into(),
-                attack_range: 300.0,
-                attack_speed: 0.8,
-                projectile_damage: 15.0,
-            },
-        );
-        container
+        }
     }
 
     /// Register a named builder from a [`RoleBuilder`] implementor.

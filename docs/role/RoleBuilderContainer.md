@@ -35,7 +35,7 @@ impl RoleBuilderContainer {
 
 > 内部使用 `Box<dyn for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Entity>` 存储。
 > `Commands` 直接作为闭包参数，`RoleBuilderContext` 仅包含 `position` 和 `parent` 等纯数据。
-> `new()` 创建时已预注册一个名为 `"archer"` 的默认 [`ArcherRoleBuilder`](archer/ArcherRoleBuilder.md)。
+> `new()` 创建空容器；各角色插件（如 `ArcherPlugin`）在构建时通过 `resource_mut` 注册对应的 builder。
 
 ## 使用方式
 
@@ -45,10 +45,11 @@ use bevy::prelude::*;
 // 在插件中插入（已在 role::plugin 中自动完成）
 fn plugin(app: &mut App) {
     app.insert_resource(RoleBuilderContainer::new())
+       .add_plugins(archer::ArcherPlugin) // 注册 archer builder
        .add_systems(Startup, register_builders);
 }
 
-// 系统：注册构建器
+// 系统：注册自定义构建器
 fn register_builders(mut container: ResMut<RoleBuilderContainer>) {
     // 传入实现了 RoleBuilder 的类型
     container.register("hero", PlayerBuilder { name: "Hero".into() });
@@ -70,7 +71,7 @@ fn spawn_hero(world: &mut World) {
 
 | 方法 | 签名 | 说明 |
 |---|---|---|
-| `new` | `fn new() -> Self` | 创建容器并预注册默认的 `"archer"` 构建器。 |
+| `new` | `fn new() -> Self` | 创建空容器。Builder 由各角色插件（如 `ArcherPlugin`）注册。 |
 | `register` | `fn register(&mut self, name: impl Into<String>, builder: impl RoleBuilder + 'static)` | 从 `RoleBuilder` 实现注册。 |
 | `build` | `fn build<'w, 's>(&self, name: &str, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Option<Entity>` | 按名称查找并执行构建。 |
 
@@ -80,9 +81,9 @@ fn spawn_hero(world: &mut World) {
 关卡配置 / 玩家选择
     │  ("hero", "npc_merchant", ...)
     ▼
-RoleBuilderContainer      ← Bevy Resource
+RoleBuilderContainer      ← Bevy Resource（空容器，由各插件填充）
     │
-    ├── "archer"      → Box<dyn Fn(&mut Commands, RoleBuilderContext) -> Entity>（默认）
+    ├── "archer"      → ArcherPlugin 注册
     ├── "hero"        → ...
     └── ...
         │  (按名称查找并调用闭包)
