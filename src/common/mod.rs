@@ -5,12 +5,17 @@
 use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
 
-pub(super) fn plugin(app: &mut App) {
-    app.register_type::<VisualDisplayLayer>();
-    app.register_type::<GamePhysicsLayer>();
-    app.register_type::<AttackRange>();
-    app.register_type::<CoolingTimer>();
-    app.register_type::<EnemyTarget>();
+pub(super) struct CommonPlugin;
+
+impl Plugin for CommonPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<VisualDisplayLayer>();
+        app.register_type::<GamePhysicsLayer>();
+        app.register_type::<AttackRange>();
+        app.register_type::<CoolingTimer>();
+        app.register_type::<EnemyTarget>();
+        app.register_type::<EnemyTargetList>();
+    }
 }
 
 /// A z-order layer for visual elements.
@@ -94,6 +99,15 @@ pub struct AttackRange(pub f32);
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Component)]
 pub struct EnemyTarget(pub Option<Entity>);
+
+/// All enemy entities currently within attack range.
+///
+/// Updated by collision events: enemies are added on `CollisionStarted`
+/// and removed on `CollisionEnded`. Systems can iterate this list to
+/// select a target or apply area-of-effect.
+#[derive(Component, Debug, Clone, Default, Reflect)]
+#[reflect(Component)]
+pub struct EnemyTargetList(pub Vec<Entity>);
 
 /// Cooldown timer.
 ///
