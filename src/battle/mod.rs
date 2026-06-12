@@ -20,7 +20,7 @@ impl Plugin for BattlePlugin {
 ///
 /// Stores hit points, armor, and other combat-related data used by
 /// the battle system for damage calculation and target evaluation.
-#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[derive(Component, Debug, Clone, PartialEq, Default, Reflect)]
 #[reflect(Component)]
 pub struct BattleState {
     /// Current hit points.
@@ -53,4 +53,11 @@ impl BattleState {
         let effective = (raw_damage - self.armor).max(0.0);
         self.hp = (self.hp - effective).max(0.0);
     }
+}
+
+/// Create a battle entity with combat attributes.
+///
+/// Returns a [`BattleState`] initialized with the given hit points and armor.
+pub fn battle(max_hp: f32, armor: f32) -> BattleState {
+    BattleState::new(max_hp, armor)
 }

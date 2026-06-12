@@ -61,6 +61,8 @@ pub fn spawn_level(
             4,
             2,
             Sprite::from_color(Color::srgb(1.0, 0.0, 0.0), Vec2::splat(map_data.cell_size)),
+            100.0,
+            10.0,
         ));
         level.spawn((
             Name::new("Gameplay Music"),

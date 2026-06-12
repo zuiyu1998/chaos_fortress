@@ -7,6 +7,7 @@ use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
+use crate::battle::battle;
 use crate::bullet::{BulletPosition, BulletPositionTarget, bullet};
 use crate::common::{
     AttackRange, CoolingTimer, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer,
@@ -82,6 +83,8 @@ impl Plugin for ArcherPlugin {
                 attack_range: 600.0,
                 attack_speed: 0.8,
                 projectile_damage: 15.0,
+                max_hp: 100.0,
+                armor: 5.0,
             },
         );
 
@@ -118,6 +121,10 @@ pub struct ArcherRoleBuilder {
     pub attack_speed: f32,
     /// Projectile damage value.
     pub projectile_damage: f32,
+    /// Maximum hit points.
+    pub max_hp: f32,
+    /// Armor value.
+    pub armor: f32,
 }
 
 /// Attach a state machine to an archer entity with Idle and Combat states.
@@ -164,6 +171,8 @@ impl RoleBuilder for ArcherRoleBuilder {
             EnemyTarget(None),
             EnemyTargetList(Vec::new()),
         ));
+
+        entity.insert(battle(self.max_hp, self.armor));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;
         entity.with_children(|parent| {

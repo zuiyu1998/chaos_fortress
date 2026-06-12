@@ -12,7 +12,7 @@
 
 ```rust
 /// 战斗实体的战斗属性。
-#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[derive(Component, Debug, Clone, PartialEq, Default, Reflect)]
 #[reflect(Component)]
 pub struct BattleState {
     /// 当前血量。
@@ -37,9 +37,9 @@ impl BattleState {
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `hp` | `f32` | 当前血量，降至 0 以下时实体死亡。 |
-| `max_hp` | `f32` | 最大血量，创建时 `hp` 初始化为该值。 |
-| `armor` | `f32` | 护甲值，受到的伤害会先减去护甲值（最小为 0）。 |
+| `hp` | `f32` | 当前血量，降至 0 以下时实体死亡。`Default` 为 `0.0`。 |
+| `max_hp` | `f32` | 最大血量，创建时 `hp` 初始化为该值。`Default` 为 `0.0`。 |
+| `armor` | `f32` | 护甲值，受到的伤害会先减去护甲值（最小为 0）。`Default` 为 `0.0`。 |
 
 ## 方法
 
