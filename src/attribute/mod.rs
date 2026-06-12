@@ -1,9 +1,10 @@
 //! Attribute module.
 //!
 //! Defines the [`Attribute`] component, the [`AttributeModifier`] value object,
-//! and their helper methods.
+//! the [`AttributeSet`] component, and their helper methods.
 
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 /// Plugin that registers [`Attribute`] with Bevy's type registry.
 pub(super) struct AttributePlugin;
@@ -11,6 +12,7 @@ pub(super) struct AttributePlugin;
 impl Plugin for AttributePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Attribute>();
+        app.register_type::<AttributeSet>();
     }
 }
 
@@ -147,4 +149,62 @@ pub enum ModifierKind {
     Percent(f32),
     /// Overrides the attribute value entirely, ignoring other modifiers.
     Override(f32),
+}
+
+// ---------------------------------------------------------------------------
+// AttributeSet
+// ---------------------------------------------------------------------------
+
+/// A collection of named [`Attribute`]s, providing keyed access to manage all
+/// attributes of an entity (e.g. health, attack power, defense) in one place.
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct AttributeSet {
+    /// Map of attribute names (e.g. "hp", "attack", "defense") to [`Attribute`]s.
+    pub attributes: HashMap<String, Attribute>,
+}
+
+impl AttributeSet {
+    /// Creates an empty attribute set.
+    pub fn new() -> Self {
+        Self {
+            attributes: HashMap::new(),
+        }
+    }
+
+    /// Inserts or replaces an attribute by name.
+    pub fn insert(&mut self, name: &str, attribute: Attribute) {
+        self.attributes.insert(name.to_string(), attribute);
+    }
+
+    /// Returns an immutable reference to the attribute with the given name.
+    pub fn get(&self, name: &str) -> Option<&Attribute> {
+        self.attributes.get(name)
+    }
+
+    /// Returns a mutable reference to the attribute with the given name.
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut Attribute> {
+        self.attributes.get_mut(name)
+    }
+
+    /// Removes the attribute with the given name, returning it if it existed.
+    pub fn remove(&mut self, name: &str) -> Option<Attribute> {
+        self.attributes.remove(name)
+    }
+
+    /// Returns an iterator over all attribute names.
+    pub fn names(&self) -> impl Iterator<Item = &String> {
+        self.attributes.keys()
+    }
+
+    /// Returns an iterator over all (name, attribute) pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Attribute)> {
+        self.attributes.iter()
+    }
+}
+
+impl Default for AttributeSet {
+    fn default() -> Self {
+        Self::new()
+    }
 }
