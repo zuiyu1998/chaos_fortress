@@ -12,6 +12,8 @@ bevy = { version = "0.18", default-features = false, features = ["2d"] }
 # (see <https://github.com/bevyengine/bevy/blob/main/docs/profiling.md#tracy-profiler>)
 avian2d = { version = "0.6", features = ["diagnostic_ui"] }
 bevy_gearbox = "0.6"
+bevy_lunex = { version = "0.6", default-features = false }
+bevy_tweening = "0.15"
 
 tracing = { version = "0.1", features = [
     "max_level_debug",

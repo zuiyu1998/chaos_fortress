@@ -4,6 +4,7 @@
 
 use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
+use bevy_lunex::{Rh, Rl, UiColor, UiFetchFromCamera, UiLayout, UiLayoutRoot, UiTextSize};
 
 pub(super) struct CommonPlugin;
 
@@ -15,6 +16,8 @@ impl Plugin for CommonPlugin {
         app.register_type::<CoolingTimer>();
         app.register_type::<EnemyTarget>();
         app.register_type::<EnemyTargetList>();
+        app.register_type::<UIRoot2d>();
+        app.register_type::<DamageNumber>();
     }
 }
 
@@ -145,6 +148,68 @@ pub fn attack_range(range: f32, layers: CollisionLayers) -> impl Bundle {
         Collider::circle(range),
         Sensor,
         layers,
+    )
+}
+
+/// 2D UI root marker.
+///
+/// Marks an entity as the root of a 2D UI tree.
+/// Used alongside bevy_lunex's `UiLayoutRoot` and `UiFetchFromCamera`
+/// to bind the UI tree to a camera viewport.
+/// Systems can query for `&UIRoot2d` to locate the UI root conveniently.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Component)]
+pub struct UIRoot2d;
+
+/// Damage number marker.
+///
+/// Marks an entity as a floating damage number, typically spawned as a
+/// child of a bevy_lunex UI tree. Systems query for `&DamageNumber` to
+/// drive float-up / fade-out animations and lifecycle management.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Component)]
+pub struct DamageNumber;
+
+/// Spawn a damage number.
+///
+/// Returns a bundle containing a [`DamageNumber`] marker, bevy_lunex
+/// layout components ([`UiLayout`], [`UiTextSize`], [`UiColor`]), and
+/// a [`Text2d`] with the given font.
+pub fn damage_number(
+    value: i32,
+    pos_x: f32,
+    pos_y: f32,
+    font: Handle<Font>,
+) -> impl Bundle {
+    (
+        Name::new(format!("DamageNumber ({value})")),
+        DamageNumber,
+        UiLayout::window()
+            .pos((Rl(pos_x), Rh(pos_y)))
+            .size((Rl(0.0), Rh(0.0)))
+            .pack(),
+        UiTextSize::from(Rh(40.0)),
+        UiColor::from(Color::srgb(1.0, 0.2, 0.2)),
+        Text2d::new(format!("{value}")),
+        TextFont {
+            font,
+            font_size: 64.0,
+            ..default()
+        },
+    )
+}
+
+/// Spawn a 2D UI root node.
+///
+/// Returns a bundle containing [`UIRoot2d`], [`UiLayoutRoot`], and
+/// [`UiFetchFromCamera`] components, linked to camera index 0.
+/// This is the entry point for all 2D UI spawned via bevy_lunex.
+pub fn ui_root_2d() -> impl Bundle {
+    (
+        Name::new("UI Root"),
+        UIRoot2d,
+        UiLayoutRoot::new_2d(),
+        UiFetchFromCamera::<0>,
     )
 }
 

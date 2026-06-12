@@ -22,6 +22,8 @@ use avian2d::PhysicsPlugins;
 use avian2d::prelude::Gravity;
 use bevy::{asset::AssetMetaCheck, prelude::*};
 use bevy_gearbox::GearboxPlugin;
+use bevy_lunex::{UiLunexPlugin, UiSourceCamera};
+use bevy_tweening::TweeningPlugin;
 
 fn main() -> AppExit {
     App::new().add_plugins(AppPlugin).run()
@@ -55,7 +57,9 @@ impl Plugin for AppPlugin {
         // Add other plugins.
         app.add_plugins((
             GearboxPlugin,
+            UiLunexPlugin,
             PhysicsPlugins::default(),
+            TweeningPlugin,
             asset_tracking::plugin,
             audio::plugin,
             bullet::BulletPlugin,
@@ -65,6 +69,8 @@ impl Plugin for AppPlugin {
             level::plugin,
             map::plugin,
             role::RolePlugin,
+        ));
+        app.add_plugins((
             #[cfg(feature = "dev")]
             dev_tools::plugin,
             menus::plugin,
@@ -117,5 +123,9 @@ struct Pause(pub bool);
 struct PausableSystems;
 
 fn spawn_camera(mut commands: Commands) {
-    commands.spawn((Name::new("Camera"), Camera2d));
+    commands.spawn((
+        Name::new("Camera"),
+        Camera2d,
+        UiSourceCamera::<0>,
+    ));
 }

@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use crate::{
     asset_tracking::LoadResource,
     audio::music,
+    common,
     enemy,
     map::{self, MapData},
     role,
@@ -42,31 +43,28 @@ pub fn spawn_level(
     for mut transform in &mut camera_query {
         transform.translation = Vec3::new(640.0, -360.0, 0.0);
     }
-    commands.spawn((
-        Name::new("Level"),
-        Transform::from_xyz(map_data.cell_size, 0.0, 0.0),
-        Visibility::default(),
-        DespawnOnExit(Screen::Gameplay),
-    ))
-    .with_children(|level| {
-        map::map(level, &map_data);
-        role::role(
-            level,
-            &role_container,
-            0,
-            9,
-        );
-        level.spawn(enemy::enemy(
-            map_data.cell_size,
-            4,
-            2,
-            Sprite::from_color(Color::srgb(1.0, 0.0, 0.0), Vec2::splat(map_data.cell_size)),
-            100.0,
-            10.0,
-        ));
-        level.spawn((
-            Name::new("Gameplay Music"),
-            music(level_assets.music.clone()),
-        ));
-    });
+    commands
+        .spawn((
+            Name::new("Level"),
+            Transform::from_xyz(map_data.cell_size, 0.0, 0.0),
+            Visibility::default(),
+            DespawnOnExit(Screen::Gameplay),
+        ))
+        .with_children(|level| {
+            map::map(level, &map_data);
+            role::role(level, &role_container, 0, 9);
+            level.spawn(enemy::enemy(
+                map_data.cell_size,
+                4,
+                2,
+                Sprite::from_color(Color::srgb(1.0, 0.0, 0.0), Vec2::splat(map_data.cell_size)),
+                100.0,
+                10.0,
+            ));
+            level.spawn((
+                Name::new("Gameplay Music"),
+                music(level_assets.music.clone()),
+            ));
+            level.spawn(common::ui_root_2d());
+        });
 }
