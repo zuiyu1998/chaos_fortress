@@ -6,8 +6,9 @@
 
 - 向 Bevy 应用注册 [`Bullet`], [`BulletPosition`], [`BulletPositionTarget`] 三个组件到类型反射系统（Type Registry）。
 - 通过 `add_message` 注册 [`BulletBattleEvent`] 消息。
-- 添加两个 `Update` 阶段系统：
+- 添加三个 `Update` 阶段系统：
   - [`emit_bullet_battle_event`]：监听碰撞事件并发送 [`BulletBattleEvent`] 消息。
+  - [`apply_bullet_damage`]：读取 [`BulletBattleEvent`] 消息，对命中实体计算伤害并在死亡时触发 [`DeathInBattle`]。
   - [`despawn_on_hit`]：读取 [`BulletBattleEvent`] 消息，销毁子弹实体。
 
 ## 定义
@@ -23,7 +24,10 @@ impl Plugin for BulletPlugin {
         app.register_type::<BulletPositionTarget>();
         app.add_message::<BulletBattleEvent>();
 
-        app.add_systems(Update, (emit_bullet_battle_event, despawn_on_hit));
+        app.add_systems(
+            Update,
+            (emit_bullet_battle_event, apply_bullet_damage, despawn_on_hit),
+        );
     }
 }
 ```
@@ -47,7 +51,34 @@ impl Plugin for BulletPlugin {
 | 系统 | 阶段 | 说明 |
 |------|------|------|
 | [`emit_bullet_battle_event`] | `Update` | 监听 avian2d 碰撞开始事件，检测子弹碰撞并发送 [`BulletBattleEvent`] 消息。 |
+| [`apply_bullet_damage`] | `Update` | 读取 [`BulletBattleEvent`] 消息，查询子弹的 `ProjectileDamage` 和目标的 [`BattleState`]，计算伤害并在目标死亡时发送 [`DeathInBattle`]。 |
 | [`despawn_on_hit`] | `Update` | 读取 [`BulletBattleEvent`] 消息，将 `bullet` 字段指向的子弹实体销毁。 |
+
+### apply_bullet_damage
+
+```rust
+pub fn apply_bullet_damage(
+    mut events: MessageReader<BulletBattleEvent>,
+    bullets: Query<&ProjectileDamage>,
+    mut battle_states: Query<&mut BattleState>,
+    mut death_writer: MessageWriter<DeathInBattle>,
+) {
+    for event in events.read() {
+        let Ok(damage) = bullets.get(event.bullet) else {
+            continue;
+        };
+        let Ok(mut state) = battle_states.get_mut(event.other) else {
+            continue;
+        };
+        state.take_damage(damage.0);
+        if state.is_dead() {
+            death_writer.write(DeathInBattle {
+                entity: event.other,
+            });
+        }
+    }
+}
+```
 
 ### despawn_on_hit
 
@@ -70,11 +101,14 @@ pub fn despawn_on_hit(
 
 - **子弹模块**（`bullet`）：`BulletPlugin` 是子弹模块的入口插件，由主应用（`AppPlugin`）的插件列表添加。
 - **主应用**（`main`）：在 `src/main.rs` 中以 `bullet::BulletPlugin` 的形式被添加至 Bevy 应用。
-- **战斗系统**（`battle`）：其他系统可通过读取 [`BulletBattleEvent`] 消息来实现自定义的命中逻辑，而无需修改 `BulletPlugin`。
+- **战斗系统**（`battle`）：[`apply_bullet_damage`] 系统通过 [`DeathInBattle`] 消息与战斗模块联动。其他系统可通过读取 [`BulletBattleEvent`] 消息来实现自定义的命中逻辑，而无需修改 `BulletPlugin`。
 
 [`Bullet`]: ./Bullet.md
 [`BulletPosition`]: ./BulletPosition.md
 [`BulletPositionTarget`]: ./BulletPositionTarget.md
 [`BulletBattleEvent`]: ./BulletBattleEvent.md
 [`emit_bullet_battle_event`]: ./BulletBattleEvent.md#emit_bullet_battle_event-系统
+[`apply_bullet_damage`]: #apply_bullet_damage
+[`DeathInBattle`]: ../battle/DeathInBattle.md
+[`BattleState`]: ../battle/BattleState.md
 [`Plugin`]: https://docs.rs/bevy/latest/bevy/app/trait.Plugin.html

@@ -216,6 +216,7 @@ pub fn run_skill(
             &BulletPositionTarget,
             &GlobalTransform,
             &EnemyTarget,
+            &ProjectileDamage,
         ),
         With<Archer>,
     >,
@@ -223,7 +224,7 @@ pub fn run_skill(
     enemy_transform_query: Query<&GlobalTransform>,
 ) {
     for active in &combat_states {
-        if let Ok((mut timer, target, _archer_transform, enemy_target)) =
+        if let Ok((mut timer, target, _archer_transform, enemy_target, damage)) =
             archers.get_mut(active.machine)
         {
             if timer.0.just_finished() {
@@ -239,6 +240,7 @@ pub fn run_skill(
                                 position,
                                 direction * 200.0,
                                 GamePhysicsLayer::detect_enemy_layers(),
+                                damage.0,
                             ));
                         }
                     }

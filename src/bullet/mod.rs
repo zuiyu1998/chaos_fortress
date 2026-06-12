@@ -9,14 +9,16 @@ use avian2d::prelude::{
 };
 use bevy::prelude::*;
 
+use crate::battle::{BattleState, DeathInBattle};
 use crate::common::VisualDisplayLayer;
+use crate::role::archer::ProjectileDamage;
 
 /// Plugin that registers bullet-related components, messages, and systems.
 ///
 /// Registers [`Bullet`], [`BulletPosition`], [`BulletPositionTarget`],
 /// and [`BulletBattleEvent`] with Bevy's type registry and message system,
-/// and adds the [`emit_bullet_battle_event`] and [`despawn_on_hit`]
-/// systems.
+/// and adds the [`emit_bullet_battle_event`], [`apply_bullet_damage`],
+/// and [`despawn_on_hit`] systems.
 pub(super) struct BulletPlugin;
 
 impl Plugin for BulletPlugin {
@@ -26,7 +28,10 @@ impl Plugin for BulletPlugin {
         app.register_type::<BulletPositionTarget>();
         app.add_message::<BulletBattleEvent>();
 
-        app.add_systems(Update, (emit_bullet_battle_event, despawn_on_hit));
+        app.add_systems(
+            Update,
+            (emit_bullet_battle_event, apply_bullet_damage, despawn_on_hit),
+        );
     }
 }
 
@@ -99,6 +104,35 @@ pub fn despawn_on_hit(mut events: MessageReader<BulletBattleEvent>, mut commands
     }
 }
 
+/// System that reads [`BulletBattleEvent`] and applies bullet damage to the
+/// hit entity's [`BattleState`].
+///
+/// For each bullet collision event, queries [`ProjectileDamage`] from the
+/// bullet and [`BattleState`] from the other entity, applies damage via
+/// [`BattleState::take_damage`], and emits a [`DeathInBattle`] message if
+/// the entity is dead.
+pub fn apply_bullet_damage(
+    mut events: MessageReader<BulletBattleEvent>,
+    bullets: Query<&ProjectileDamage>,
+    mut battle_states: Query<&mut BattleState>,
+    mut death_writer: MessageWriter<DeathInBattle>,
+) {
+    for event in events.read() {
+        let Ok(damage) = bullets.get(event.bullet) else {
+            continue;
+        };
+        let Ok(mut state) = battle_states.get_mut(event.other) else {
+            continue;
+        };
+        state.take_damage(damage.0);
+        if state.is_dead() {
+            death_writer.write(DeathInBattle {
+                entity: event.other,
+            });
+        }
+    }
+}
+
 /// A marker component that indicates the bullet's starting position
 /// has been recorded.
 ///
@@ -118,14 +152,14 @@ pub struct BulletPosition;
 #[reflect(Component)]
 pub struct BulletPositionTarget(pub Entity);
 
-/// Spawn a bullet at a given position with a given velocity and collision layers.
+/// Spawn a bullet at a given position with a given velocity, collision layers, and damage.
 ///
 /// Returns a bundle containing a [`Bullet`] marker, a [`Sprite`] of
 /// 2×16 pixels (width × height), a [`Transform`] positioned at `position`,
 /// and physics components ([`RigidBody::Kinematic`], [`Collider::rectangle`],
 /// [`CollisionLayers`], [`LinearVelocity`], [`CollisionEventsEnabled`],
-/// [`Sensor`]).
-pub fn bullet(position: Vec2, velocity: Vec2, layers: CollisionLayers) -> impl Bundle {
+/// [`Sensor`]), and a [`ProjectileDamage`] for damage calculation.
+pub fn bullet(position: Vec2, velocity: Vec2, layers: CollisionLayers, damage: f32) -> impl Bundle {
     (
         Name::new("Bullet"),
         Bullet,
@@ -138,5 +172,6 @@ pub fn bullet(position: Vec2, velocity: Vec2, layers: CollisionLayers) -> impl B
         LinearVelocity(velocity),
         CollisionEventsEnabled,
         Sensor,
+        ProjectileDamage(damage),
     )
 }
