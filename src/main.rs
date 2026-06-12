@@ -57,7 +57,7 @@ impl Plugin for AppPlugin {
             PhysicsPlugins::default(),
             asset_tracking::plugin,
             audio::plugin,
-            bullet::plugin,
+            bullet::BulletPlugin,
             common::CommonPlugin,
             enemy::EnemyPlugin,
             level::plugin,

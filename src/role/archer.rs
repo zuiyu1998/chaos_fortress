@@ -226,7 +226,11 @@ pub fn run_skill(
                             let position = bullet_transform.translation().truncate();
                             let direction = (enemy_transform.translation().truncate() - position)
                                 .normalize_or_zero();
-                            commands.spawn(bullet(position, direction * 200.0));
+                            commands.spawn(bullet(
+                                position,
+                                direction * 200.0,
+                                GamePhysicsLayer::detect_enemy_layers(),
+                            ));
                         }
                     }
                 }
