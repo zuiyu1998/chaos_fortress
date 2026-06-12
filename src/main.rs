@@ -4,6 +4,7 @@
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
 mod asset_tracking;
+pub mod attribute;
 mod audio;
 pub mod battle;
 pub mod bullet;
@@ -61,6 +62,7 @@ impl Plugin for AppPlugin {
             PhysicsPlugins::default(),
             TweeningPlugin,
             asset_tracking::plugin,
+            attribute::AttributePlugin,
             audio::plugin,
             bullet::BulletPlugin,
             battle::BattlePlugin,
