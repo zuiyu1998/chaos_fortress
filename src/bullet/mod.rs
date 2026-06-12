@@ -10,7 +10,7 @@ use avian2d::prelude::{
 use bevy::prelude::*;
 
 use crate::battle::{BattleState, DeathInBattle};
-use crate::common::VisualDisplayLayer;
+use crate::common::{damage_number, VisualDisplayLayer};
 use crate::role::archer::ProjectileDamage;
 
 /// Plugin that registers bullet-related components, messages, and systems.
@@ -109,13 +109,17 @@ pub fn despawn_on_hit(mut events: MessageReader<BulletBattleEvent>, mut commands
 ///
 /// For each bullet collision event, queries [`ProjectileDamage`] from the
 /// bullet and [`BattleState`] from the other entity, applies damage via
-/// [`BattleState::take_damage`], and emits a [`DeathInBattle`] message if
-/// the entity is dead.
+/// [`BattleState::take_damage`], emits a [`DeathInBattle`] message if
+/// the entity is dead, and spawns a floating damage number at the hit
+/// position using bevy_lunex layout.
 pub fn apply_bullet_damage(
     mut events: MessageReader<BulletBattleEvent>,
     bullets: Query<&ProjectileDamage>,
     mut battle_states: Query<&mut BattleState>,
     mut death_writer: MessageWriter<DeathInBattle>,
+    mut commands: Commands,
+    transforms: Query<&Transform>,
+    asset_server: Res<AssetServer>,
 ) {
     for event in events.read() {
         let Ok(damage) = bullets.get(event.bullet) else {
@@ -125,6 +129,18 @@ pub fn apply_bullet_damage(
             continue;
         };
         state.take_damage(damage.0);
+
+        // Spawn a damage number at the bullet's world position
+        if let Ok(bullet_transform) = transforms.get(event.bullet) {
+            let pos = bullet_transform.translation;
+            commands.spawn(damage_number(
+                damage.0 as i32,
+                pos.x,
+                pos.y,
+                asset_server.load("fonts/FiraSans-Bold.ttf"),
+            ));
+        }
+
         if state.is_dead() {
             death_writer.write(DeathInBattle {
                 entity: event.other,

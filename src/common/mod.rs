@@ -4,7 +4,7 @@
 
 use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
-use bevy_lunex::{Rh, Rl, UiColor, UiFetchFromCamera, UiLayout, UiLayoutRoot, UiTextSize};
+use bevy_lunex::{UiFetchFromCamera, UiLayoutRoot};
 
 pub(super) struct CommonPlugin;
 
@@ -172,9 +172,9 @@ pub struct DamageNumber;
 
 /// Spawn a damage number.
 ///
-/// Returns a bundle containing a [`DamageNumber`] marker, bevy_lunex
-/// layout components ([`UiLayout`], [`UiTextSize`], [`UiColor`]), and
-/// a [`Text2d`] with the given font.
+/// Returns a bundle containing a [`DamageNumber`] marker, a [`Text2d`]
+/// with the given font, and a [`Transform`] positioned at the given
+/// world coordinates.
 pub fn damage_number(
     value: i32,
     pos_x: f32,
@@ -184,18 +184,15 @@ pub fn damage_number(
     (
         Name::new(format!("DamageNumber ({value})")),
         DamageNumber,
-        UiLayout::window()
-            .pos((Rl(pos_x), Rh(pos_y)))
-            .size((Rl(0.0), Rh(0.0)))
-            .pack(),
-        UiTextSize::from(Rh(40.0)),
-        UiColor::from(Color::srgb(1.0, 0.2, 0.2)),
         Text2d::new(format!("{value}")),
         TextFont {
             font,
             font_size: 64.0,
             ..default()
         },
+        TextColor(Color::srgb(1.0, 0.2, 0.2)),
+        Transform::from_xyz(pos_x, pos_y, 10.0),
+        Visibility::default(),
     )
 }
 
