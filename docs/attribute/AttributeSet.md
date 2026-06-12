@@ -69,9 +69,9 @@ impl AttributeSet {
 let mut set = AttributeSet::new();
 
 // 添加属性
-set.insert("hp", Attribute::new(100.0, 100.0));
-set.insert("attack", Attribute::new(50.0, 50.0));
-set.insert("defense", Attribute::new(30.0, 30.0));
+set.insert("hp", Attribute::new(100.0));
+set.insert("attack", Attribute::new(50.0));
+set.insert("defense", Attribute::new(30.0));
 
 // 访问并修改属性
 if let Some(hp) = set.get_mut("hp") {

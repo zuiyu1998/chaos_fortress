@@ -40,13 +40,15 @@ pub struct Attribute {
 
 impl Attribute {
     /// Creates a new attribute with `base` and `value` set to `base`,
-    /// `max` set to `max`, `min` set to `0.0`, and an empty modifier list.
-    pub fn new(base: f32, max: f32) -> Self {
+    /// `max` set to [`f32::MAX`], `min` set to [`f32::MIN`], and an empty
+    /// modifier list — meaning no bounds are enforced unless explicitly
+    /// overridden.
+    pub fn new(base: f32) -> Self {
         Self {
             base,
             value: base,
-            max,
-            min: 0.0,
+            max: f32::MAX,
+            min: f32::MIN,
             modifiers: Vec::new(),
         }
     }

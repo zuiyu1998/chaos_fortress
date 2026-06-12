@@ -42,13 +42,13 @@ pub struct Attribute {
 
 ```rust
 impl Attribute {
-    /// 创建一个新属性，基础值和实际值均为 `base`，最大值为 `max`，最小值为 `min`。
-    pub fn new(base: f32, max: f32) -> Self {
+    /// 创建一个新属性，基础值和实际值均为 `base`，最大值为 `f32::MAX`，最小值为 `f32::MIN`。
+    pub fn new(base: f32) -> Self {
         Self {
             base,
             value: base,
-            max,
-            min: 0.0,
+            max: f32::MAX,
+            min: f32::MIN,
             modifiers: Vec::new(),
         }
     }

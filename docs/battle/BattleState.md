@@ -30,6 +30,8 @@ impl BattleState {
     pub fn is_dead(&self) -> bool { ... }
     /// 承受伤害（经护甲减伤后）。
     pub fn take_damage(&mut self, raw_damage: f32) { ... }
+    /// 从 BattleAttributeSet 生成 BattleState，提取当前 hp、max_hp、armor。
+    pub fn from_attribute_set(set: &BattleAttributeSet) -> Self { ... }
 }
 ```
 
@@ -46,6 +48,7 @@ impl BattleState {
 | 方法 | 说明 |
 |------|------|
 | `new(max_hp, armor)` | 创建一个新的 `BattleState`，`hp` 初始化为 `max_hp`（满血）。 |
+| `from_attribute_set(set)` | 从 `BattleAttributeSet` 生成 `BattleState`，提取当前 `hp`、`max_hp`、`armor`。 |
 | `is_dead() -> bool` | 如果 `hp ≤ 0` 返回 `true`，表示实体已死亡。 |
 | `take_damage(raw_damage)` | 承受原始伤害 `raw_damage`，减去 `armor` 后作用于 `hp`（最少为 0）。 |
 
@@ -59,8 +62,10 @@ hp = max(hp - effective_damage, 0)
 ## 与现有模块的关系
 
 - **战斗模块**（`battle`）：`BattleState` 定义在 `battle` 模块中，由 `BattlePlugin` 注册。战斗系统的伤害计算、生死判断等核心逻辑围绕 `BattleState` 展开。
+- **[`BattleAttributeSet`]**：`from_attribute_set` 方法提供从 `BattleAttributeSet` 到 `BattleState` 的转换能力，方便在保留修饰器系统的同时兼容旧组件。
 - **角色模块**（`role`）：角色实体在构建时可附加 `BattleState` 组件，用于参与战斗。
 - **敌人模块**（`enemy`）：敌人实体同样可通过 `BattleState` 组件拥有血量和护甲。
 
 [`EnemyTarget`]: ../common/EnemyTarget.md
 [`AttackRange`]: ../common/AttackRange.md
+[`BattleAttributeSet`]: ./BattleAttributeSet.md
