@@ -5,6 +5,7 @@
 
 mod asset_tracking;
 mod audio;
+pub mod battle;
 pub mod bullet;
 pub mod common;
 mod enemy;
@@ -58,6 +59,7 @@ impl Plugin for AppPlugin {
             asset_tracking::plugin,
             audio::plugin,
             bullet::BulletPlugin,
+            battle::BattlePlugin,
             common::CommonPlugin,
             enemy::EnemyPlugin,
             level::plugin,

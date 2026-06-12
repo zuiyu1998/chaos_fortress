@@ -20,4 +20,4 @@ pub struct BulletPosition;
 ## 与现有模块的关系
 
 - **子弹模块**（`bullet`）：`bullet` 函数在生成子弹实体时附加 `BulletPosition` 标记组件。
-- **战斗系统**（`battle_system`）：子弹飞行系统通过查询 `BulletPosition` 标记来识别需要追踪起始位置的子弹。
+- **战斗系统**（`battle`）：子弹飞行系统通过查询 `BulletPosition` 标记来识别需要追踪起始位置的子弹。

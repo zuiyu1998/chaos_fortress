@@ -3,7 +3,10 @@
 //! Defines the [`Bullet`] component, which marks an entity as a projectile
 //! (bullet) that can collide with enemies and deal damage.
 
-use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, LinearVelocity, RigidBody, Sensor};
+use avian2d::prelude::{
+    Collider, CollisionEventsEnabled, CollisionLayers, CollisionStart, LinearVelocity, RigidBody,
+    Sensor,
+};
 use bevy::prelude::*;
 
 use crate::common::VisualDisplayLayer;
@@ -90,10 +93,7 @@ pub fn emit_bullet_battle_event(
 /// This provides a simple default behaviour: a bullet is immediately removed
 /// upon colliding with anything. More sophisticated systems (damage, health,
 /// pierce) can be added alongside or instead of this one.
-pub fn despawn_on_hit(
-    mut events: MessageReader<BulletBattleEvent>,
-    mut commands: Commands,
-) {
+pub fn despawn_on_hit(mut events: MessageReader<BulletBattleEvent>, mut commands: Commands) {
     for event in events.read() {
         commands.entity(event.bullet).despawn();
     }

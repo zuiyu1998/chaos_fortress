@@ -70,7 +70,7 @@ pub fn despawn_on_hit(
 
 - **子弹模块**（`bullet`）：`BulletPlugin` 是子弹模块的入口插件，由主应用（`AppPlugin`）的插件列表添加。
 - **主应用**（`main`）：在 `src/main.rs` 中以 `bullet::BulletPlugin` 的形式被添加至 Bevy 应用。
-- **战斗系统**（`battle_system`）：其他系统可通过读取 [`BulletBattleEvent`] 消息来实现自定义的命中逻辑，而无需修改 `BulletPlugin`。
+- **战斗系统**（`battle`）：其他系统可通过读取 [`BulletBattleEvent`] 消息来实现自定义的命中逻辑，而无需修改 `BulletPlugin`。
 
 [`Bullet`]: ./Bullet.md
 [`BulletPosition`]: ./BulletPosition.md

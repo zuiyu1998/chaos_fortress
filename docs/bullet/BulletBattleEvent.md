@@ -92,7 +92,7 @@ pub fn emit_bullet_battle_event(
 
 - **子弹模块**（`bullet`）：`BulletBattleEvent` 由碰撞检测系统在子弹命中时发送。
 - **弓箭手模块**（`Archer`）：弓箭手的战斗系统可读取 `BulletBattleEvent` 来处理箭矢命中逻辑。
-- **战斗系统**（`battle_system`）：通过监听 `BulletBattleEvent`，战斗系统可以实现伤害计算、特效生成和子弹销毁。
+- **战斗系统**（`battle`）：通过监听 `BulletBattleEvent`，战斗系统可以实现伤害计算、特效生成和子弹销毁。
 
 [`Bullet`]: ./Bullet.md
 [`BulletPlugin`]: ./BulletPlugin.md

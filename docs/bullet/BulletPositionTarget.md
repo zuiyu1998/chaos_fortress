@@ -27,4 +27,4 @@ pub struct BulletPositionTarget(pub Entity);
 
 - **子弹模块**（`bullet`）：子弹实体可通过 `BulletPositionTarget` 引用获取目标 `BulletPosition` 实体的位置信息。
 - **弓箭手模块**（`Archer`）：`run_skill` 系统在生成子弹时将弓箭手的 `BulletPosition` 子实体 Entity 存入 `BulletPositionTarget`，传递给子弹。
-- **战斗系统**（`battle_system`）：碰撞检测或伤害系统可通过 `BulletPositionTarget` 追溯子弹的发射源位置。
+- **战斗系统**（`battle`）：碰撞检测或伤害系统可通过 `BulletPositionTarget` 追溯子弹的发射源位置。
