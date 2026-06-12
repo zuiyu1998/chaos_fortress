@@ -5,6 +5,11 @@
 use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionLayers, PhysicsLayer, Sensor};
 use bevy::prelude::*;
 use bevy_lunex::{UiFetchFromCamera, UiLayoutRoot};
+use bevy_tweening::{
+    lens::TransformPositionLens,
+    AnimCompletedEvent, Tween, TweenAnim,
+};
+use std::time::Duration;
 
 pub(super) struct CommonPlugin;
 
@@ -18,6 +23,9 @@ impl Plugin for CommonPlugin {
         app.register_type::<EnemyTargetList>();
         app.register_type::<UIRoot2d>();
         app.register_type::<DamageNumber>();
+        app.register_type::<AutoDespawn>();
+
+        app.add_systems(PostUpdate, despawn_on_tween_complete);
     }
 }
 
@@ -170,20 +178,42 @@ pub struct UIRoot2d;
 #[reflect(Component)]
 pub struct DamageNumber;
 
+/// Auto despawn marker.
+///
+/// Marks an entity for automatic despawning.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default, Reflect)]
+#[reflect(Component)]
+pub struct AutoDespawn;
+
+/// Despawn [`AutoDespawn`] entities when their tween animation completes.
+///
+/// Listens for [`AnimCompletedEvent`] fired by bevy_tweening when a
+/// [`TweenAnim`] finishes on an entity marked with [`AutoDespawn`].
+fn despawn_on_tween_complete(
+    mut commands: Commands,
+    mut events: MessageReader<AnimCompletedEvent>,
+    query: Query<&AutoDespawn>,
+) {
+    for event in events.read() {
+        if query.contains(event.anim_entity) {
+            commands.entity(event.anim_entity).despawn();
+        }
+    }
+}
+
 /// Spawn a damage number.
 ///
 /// Returns a bundle containing a [`DamageNumber`] marker, a [`Text2d`]
 /// with the given font, and a [`Transform`] positioned at the given
-/// world coordinates.
-pub fn damage_number(
-    value: i32,
-    pos_x: f32,
-    pos_y: f32,
-    font: Handle<Font>,
-) -> impl Bundle {
+/// world coordinates with a floating-up animation.
+pub fn damage_number(value: i32, pos_x: f32, pos_y: f32, font: Handle<Font>) -> impl Bundle {
+    let start = Vec3::new(pos_x, pos_y, 10.0);
+    let end = Vec3::new(pos_x, pos_y + 80.0, 10.0);
+    let duration = Duration::from_secs(1);
+
     (
         Name::new(format!("DamageNumber ({value})")),
-        DamageNumber,
+        (DamageNumber, AutoDespawn),
         Text2d::new(format!("{value}")),
         TextFont {
             font,
@@ -191,8 +221,14 @@ pub fn damage_number(
             ..default()
         },
         TextColor(Color::srgb(1.0, 0.2, 0.2)),
-        Transform::from_xyz(pos_x, pos_y, 10.0),
+        Transform::from_translation(start),
         Visibility::default(),
+        // bevy_tweening: float upward animation
+        TweenAnim::new(Tween::new(
+            EaseFunction::QuadraticOut,
+            duration,
+            TransformPositionLens { start, end },
+        )),
     )
 }
 
