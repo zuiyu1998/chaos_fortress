@@ -6,16 +6,19 @@
 
 use bevy::prelude::*;
 
-/// Plugin that registers battle-related components and messages.
+/// Plugin that registers battle-related components, messages, and systems.
 ///
 /// Registers [`BattleState`] and [`DeathInBattle`] with Bevy's type
-/// registry and message system.
+/// registry and message system, and adds the [`despawn_on_death`]
+/// system.
 pub(super) struct BattlePlugin;
 
 impl Plugin for BattlePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<BattleState>();
         app.add_message::<DeathInBattle>();
+
+        app.add_systems(Update, despawn_on_death);
     }
 }
 
@@ -28,6 +31,17 @@ impl Plugin for BattlePlugin {
 pub struct DeathInBattle {
     /// The entity that died.
     pub entity: Entity,
+}
+
+/// System that despawns the dead entity whenever a [`DeathInBattle`]
+/// message is received.
+pub fn despawn_on_death(
+    mut events: MessageReader<DeathInBattle>,
+    mut commands: Commands,
+) {
+    for event in events.read() {
+        commands.entity(event.entity).despawn();
+    }
 }
 
 /// Combat attributes for a battle entity.
