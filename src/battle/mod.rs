@@ -1,19 +1,33 @@
 //! Battle module.
 //!
 //! Defines the [`BattleState`] component, which stores combat attributes
-//! such as hit points and armor.
+//! such as hit points and armor, and the [`DeathInBattle`] message which
+//! is emitted when a battle entity dies.
 
 use bevy::prelude::*;
 
-/// Plugin that registers battle-related components.
+/// Plugin that registers battle-related components and messages.
 ///
-/// Registers [`BattleState`] with Bevy's type registry.
+/// Registers [`BattleState`] and [`DeathInBattle`] with Bevy's type
+/// registry and message system.
 pub(super) struct BattlePlugin;
 
 impl Plugin for BattlePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<BattleState>();
+        app.add_message::<DeathInBattle>();
     }
+}
+
+/// Message emitted when a battle entity dies (hp reaches 0).
+///
+/// Carries the entity that has died. Systems can read this message
+/// to trigger death-related logic (e.g. play death animation, remove
+/// entity, drop loot).
+#[derive(Message, Clone, TypePath)]
+pub struct DeathInBattle {
+    /// The entity that died.
+    pub entity: Entity,
 }
 
 /// Combat attributes for a battle entity.
