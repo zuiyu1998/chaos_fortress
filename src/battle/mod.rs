@@ -1,7 +1,7 @@
 //! Battle module.
 //!
 //! Defines the [`BattleState`] component, which stores combat attributes
-//! such as hit points and armor, and the [`DeathInBattle`] message which
+//! such as hit points, and the [`DeathInBattle`] message which
 //! is emitted when a battle entity dies.
 
 use bevy::prelude::*;
@@ -49,7 +49,7 @@ pub fn despawn_on_death(
 
 /// Combat attributes for a battle entity.
 ///
-/// Stores hit points, armor, and other combat-related data used by
+/// Stores hit points and other combat-related data used by
 /// the battle system for damage calculation and target evaluation.
 #[derive(Component, Debug, Clone, PartialEq, Default, Reflect)]
 #[reflect(Component)]
@@ -58,27 +58,23 @@ pub struct BattleState {
     pub hp: f32,
     /// Maximum hit points.
     pub max_hp: f32,
-    /// Armor value that reduces incoming damage.
-    pub armor: f32,
 }
 
 impl BattleState {
     /// Create a new [`BattleState`] with full HP.
-    pub fn new(max_hp: f32, armor: f32) -> Self {
+    pub fn new(max_hp: f32) -> Self {
         Self {
             hp: max_hp,
             max_hp,
-            armor,
         }
     }
 
     /// Create a [`BattleState`] from a [`BattleAttributeSet`], extracting the
-    /// current `hp`, `max_hp`, and `armor` values.
+    /// current `hp` and `max_hp` values.
     pub fn from_attribute_set(set: &BattleAttributeSet) -> Self {
         Self {
             hp: set.hp(),
             max_hp: set.max_hp(),
-            armor: set.armor(),
         }
     }
 
@@ -87,12 +83,11 @@ impl BattleState {
         self.hp <= 0.0
     }
 
-    /// Apply raw damage after armor reduction.
+    /// Apply raw damage directly to hp.
     ///
-    /// Damage is reduced by `armor` (minimum 0) and subtracted from `hp`.
+    /// Damage is subtracted directly from `hp`.
     pub fn take_damage(&mut self, raw_damage: f32) {
-        let effective = (raw_damage - self.armor).max(0.0);
-        self.hp = (self.hp - effective).max(0.0);
+        self.hp = (self.hp - raw_damage).max(0.0);
     }
 }
 
