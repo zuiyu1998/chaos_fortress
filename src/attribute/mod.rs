@@ -6,13 +6,23 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-/// Plugin that registers [`Attribute`] with Bevy's type registry.
+pub(super) mod loader;
+
+/// Plugin that registers [`Attribute`], [`AttributeSet`],
+/// [`AttributeDefinition`], and [`AttributeTemplate`] with Bevy's type
+/// registry, initializes [`AttributeTemplate`] as both a [`Resource`] and an
+/// [`Asset`](bevy::asset::Asset), and registers [`loader::AttributeTemplateLoader`].
 pub(super) struct AttributePlugin;
 
 impl Plugin for AttributePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Attribute>();
         app.register_type::<AttributeSet>();
+        app.register_type::<AttributeDefinition>();
+        app.register_type::<AttributeTemplate>();
+        app.init_asset::<AttributeTemplate>();
+        app.register_asset_loader(loader::AttributeTemplateLoader);
+        app.init_resource::<AttributeTemplate>();
     }
 }
 
@@ -206,6 +216,90 @@ impl AttributeSet {
 }
 
 impl Default for AttributeSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AttributeDefinition
+// ---------------------------------------------------------------------------
+
+/// Single attribute template definition: describes the initial configuration
+/// for one named attribute.
+///
+/// Used by [`AttributeTemplate`] to store global, reusable templates that can
+/// drive [`AttributeSet`] construction without hardcoding values.
+#[derive(Clone, Debug, PartialEq, Reflect)]
+pub struct AttributeDefinition {
+    /// Attribute name (used as the key in `AttributeSet`).
+    pub name: String,
+    /// Base value.
+    pub base: f32,
+    /// Minimum value floor.
+    pub min: f32,
+    /// Maximum value ceiling.
+    pub max: f32,
+}
+
+// ---------------------------------------------------------------------------
+// AttributeTemplate
+// ---------------------------------------------------------------------------
+
+/// Global attribute template resource / asset, keyed by attribute name.
+///
+/// Provides a declarative way to centrally define and manage named attribute
+/// definitions (each being an [`AttributeDefinition`]), avoiding repeated
+/// hardcoded values when constructing [`AttributeSet`]s.
+///
+/// Can be loaded from CSV files via [`loader::AttributeTemplateLoader`], or
+/// constructed programmatically and used as both a [`Resource`] and an
+/// [`Asset`](bevy::asset::Asset).
+#[derive(Resource, Asset, Debug, Clone, Reflect)]
+#[reflect(Resource)]
+pub struct AttributeTemplate {
+    /// Map of attribute names to their template definitions.
+    pub definitions: HashMap<String, AttributeDefinition>,
+}
+
+impl AttributeTemplate {
+    /// Creates an empty template.
+    pub fn new() -> Self {
+        Self {
+            definitions: HashMap::new(),
+        }
+    }
+
+    /// Inserts (or replaces) a definition, keyed by its name.
+    pub fn define(&mut self, def: AttributeDefinition) {
+        self.definitions.insert(def.name.clone(), def);
+    }
+
+    /// Returns a reference to the definition with the given name, if any.
+    pub fn get(&self, name: &str) -> Option<&AttributeDefinition> {
+        self.definitions.get(name)
+    }
+
+    /// Builds an [`AttributeSet`] from the template by looking up each name
+    /// in `names`. Unknown names are silently skipped.
+    ///
+    /// Each matching definition produces an [`Attribute`] whose `base`,
+    /// `min`, and `max` are set from the definition.
+    pub fn build_attribute_set(&self, names: &[&str]) -> AttributeSet {
+        let mut set = AttributeSet::new();
+        for name in names {
+            if let Some(def) = self.definitions.get(*name) {
+                let mut attr = Attribute::new(def.base);
+                attr.min = def.min;
+                attr.max = def.max;
+                set.insert(&def.name, attr);
+            }
+        }
+        set
+    }
+}
+
+impl Default for AttributeTemplate {
     fn default() -> Self {
         Self::new()
     }

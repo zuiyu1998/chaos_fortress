@@ -2125,6 +2125,7 @@ dependencies = [
  "bevy_lunex",
  "bevy_tweening",
  "getrandom 0.3.3",
+ "serde",
  "tracing",
 ]
 

@@ -1,0 +1,6 @@
+name,base,min,max
+max_hp,100,0,3.40282347e+38
+attack,10,0,3.40282347e+38
+defense,5,0,3.40282347e+38
+attack_speed,1,0,3.40282347e+38
+attack_range,2,0,3.40282347e+38
