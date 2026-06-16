@@ -96,11 +96,14 @@ impl BattleState {
     }
 }
 
-/// Create a battle entity with combat attributes.
+/// Create a battle entity bundle from an [`AttributeSet`].
 ///
-/// Returns a [`BattleState`] initialized with the given hit points and armor.
-pub fn battle(max_hp: f32, armor: f32) -> BattleState {
-    BattleState::new(max_hp, armor)
+/// Returns a bundle containing a [`BattleState`] (derived from the attribute values)
+/// and a [`BattleAttributeSet`] wrapping the given attribute set for modifier support.
+pub fn battle(attributes: AttributeSet) -> impl Bundle {
+    let battle_set = BattleAttributeSet { attributes };
+    let state = BattleState::from_attribute_set(&battle_set);
+    (state, battle_set)
 }
 
 // ---------------------------------------------------------------------------

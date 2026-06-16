@@ -5,6 +5,7 @@
 use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
 use bevy::prelude::*;
 
+use crate::attribute::{Attribute, AttributeSet};
 use crate::battle::battle;
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 
@@ -44,6 +45,10 @@ pub fn enemy(
 ) -> impl Bundle {
     let x = column as f32 * cell_size;
     let y = -(row as f32 * cell_size);
+    let mut attrs = AttributeSet::new();
+    attrs.insert("hp", Attribute::new(max_hp));
+    attrs.insert("max_hp", Attribute::new(max_hp));
+    attrs.insert("armor", Attribute::new(armor));
     (
         Name::new(format!("Enemy ({column}, {row})")),
         Enemy,
@@ -54,6 +59,6 @@ pub fn enemy(
         Collider::circle(cell_size / 2.0),
         GamePhysicsLayer::enemy_layers(),
         LinearVelocity(Vec2::new(0.0, -10.0)),
-        battle(max_hp, armor),
+        battle(attrs),
     )
 }

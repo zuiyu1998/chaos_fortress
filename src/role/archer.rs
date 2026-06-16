@@ -7,6 +7,7 @@ use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
+use crate::attribute::{Attribute, AttributeSet};
 use crate::battle::battle;
 use crate::bullet::{BulletPosition, BulletPositionTarget, bullet};
 use crate::common::{
@@ -172,7 +173,11 @@ impl RoleBuilder for ArcherRoleBuilder {
             EnemyTargetList(Vec::new()),
         ));
 
-        entity.insert(battle(self.max_hp, self.armor));
+        let mut attrs = AttributeSet::new();
+        attrs.insert("hp", Attribute::new(self.max_hp));
+        attrs.insert("max_hp", Attribute::new(self.max_hp));
+        attrs.insert("armor", Attribute::new(self.armor));
+        entity.insert(battle(attrs));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;
         entity.with_children(|parent| {
