@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::{
     asset_tracking::LoadResource,
+    attribute::AttributeTemplate,
     audio::music,
     common,
     enemy,
@@ -39,6 +40,8 @@ pub fn spawn_level(
     map_data: Res<MapData>,
     mut camera_query: Query<&mut Transform, With<Camera2d>>,
     role_container: Res<role::RoleBuilderContainer>,
+    role_assets: Res<role::assets::RoleAssets>,
+    template_assets: Res<Assets<AttributeTemplate>>,
 ) {
     for mut transform in &mut camera_query {
         transform.translation = Vec3::new(640.0, -360.0, 0.0);
@@ -52,7 +55,7 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(level, &role_container, 0, 9);
+            role::role(level, &role_container, 0, 9, &role_assets, &template_assets);
             level.spawn(enemy::enemy(
                 map_data.cell_size,
                 4,

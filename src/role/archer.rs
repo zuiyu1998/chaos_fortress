@@ -7,7 +7,6 @@ use avian2d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
-use crate::attribute::{Attribute, AttributeSet};
 use crate::battle::battle;
 use crate::bullet::{BulletPosition, BulletPositionTarget, bullet};
 use crate::common::{
@@ -16,7 +15,7 @@ use crate::common::{
 };
 use crate::{Pause, screens::Screen};
 
-use super::{Archer, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
+use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -79,14 +78,7 @@ impl Plugin for ArcherPlugin {
         let mut container = app.world_mut().resource_mut::<RoleBuilderContainer>();
         container.register(
             "archer",
-            ArcherRoleBuilder {
-                name: "Archer".into(),
-                attack_range: 600.0,
-                attack_speed: 0.8,
-                projectile_damage: 15.0,
-                max_hp: 100.0,
-                armor: 5.0,
-            },
+            ArcherRoleBuilder,
         );
 
         app.register_transition::<Idle2Combat>();
@@ -112,21 +104,9 @@ pub struct ProjectileDamage(pub f32);
 /// Builder for archer role entities.
 ///
 /// Implements [`RoleBuilder`] to spawn an entity with both [`Role`] and
-/// [`Archer`] marker components, alongside ranged combat attributes.
-pub struct ArcherRoleBuilder {
-    /// The archer's display name.
-    pub name: String,
-    /// Attack range in pixels.
-    pub attack_range: f32,
-    /// Attack interval in seconds.
-    pub attack_speed: f32,
-    /// Projectile damage value.
-    pub projectile_damage: f32,
-    /// Maximum hit points.
-    pub max_hp: f32,
-    /// Armor value.
-    pub armor: f32,
-}
+/// [`Archer`] marker components. All combat attributes are sourced from
+/// [`RoleBuilderContext::attributes`]; no hardcoded defaults remain.
+pub struct ArcherRoleBuilder;
 
 /// Attach a state machine to an archer entity with Idle and Combat states.
 ///
@@ -148,9 +128,22 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
 }
 
 impl RoleBuilder for ArcherRoleBuilder {
-    fn build<'w, 's>(&self, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Entity {
+    fn build<'w, 's>(&self, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Result<Entity, BuildError> {
         let (col, row) = ctx.position;
         let cell_size = 64.0;
+        let attack_range_val = ctx.attributes
+            .get("attack_range")
+            .map(|a| a.value)
+            .ok_or_else(|| BuildError::BuildFailed("missing attribute 'attack_range'".into()))?;
+        let attack_speed_val = ctx.attributes
+            .get("attack_speed")
+            .map(|a| a.value)
+            .ok_or_else(|| BuildError::BuildFailed("missing attribute 'attack_speed'".into()))?;
+        let projectile_damage_val = ctx.attributes
+            .get("attack")
+            .map(|a| a.value)
+            .ok_or_else(|| BuildError::BuildFailed("missing attribute 'attack'".into()))?;
+
         let mut entity = commands.spawn((
             Name::new(format!("Archer ({col},{row})")),
             Role,
@@ -165,24 +158,19 @@ impl RoleBuilder for ArcherRoleBuilder {
             RigidBody::Kinematic,
             Collider::circle(cell_size / 2.0),
             GamePhysicsLayer::character_layers(),
-            AttackRange(self.attack_range),
-            AttackSpeed(self.attack_speed),
-            ProjectileDamage(self.projectile_damage),
+            AttackRange(attack_range_val),
+            AttackSpeed(attack_speed_val),
+            ProjectileDamage(projectile_damage_val),
             CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
             EnemyTarget(None),
             EnemyTargetList(Vec::new()),
         ));
-
-        let mut attrs = AttributeSet::new();
-        attrs.insert("hp", Attribute::new(self.max_hp));
-        attrs.insert("max_hp", Attribute::new(self.max_hp));
-        attrs.insert("armor", Attribute::new(self.armor));
-        entity.insert(battle(attrs));
+        entity.insert(battle(ctx.attributes));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;
         entity.with_children(|parent| {
             parent.spawn((
-                attack_range(self.attack_range, GamePhysicsLayer::detect_enemy_layers()),
+                attack_range(attack_range_val, GamePhysicsLayer::detect_enemy_layers()),
                 Transform::default(),
             ));
             bullet_position_entity = parent
@@ -201,7 +189,7 @@ impl RoleBuilder for ArcherRoleBuilder {
 
         let id = entity.id();
         setup_state_machine(id, commands);
-        id
+        Ok(id)
     }
 }
 
