@@ -19,6 +19,8 @@
 use bevy::prelude::*;
 use std::collections::HashMap;
 
+pub(super) mod loader;
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -34,6 +36,7 @@ impl Plugin for SkillPlugin {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
         app.init_resource::<SkillFeatureBuilderContainer>();
+        app.register_asset_loader(loader::SkillDefinitionLoader);
     }
 }
 
