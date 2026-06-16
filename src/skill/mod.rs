@@ -10,7 +10,11 @@
 //!   embedded inside [`SkillDefinition`].
 //! - **[`SkillInstance`]** — A [`Component`] that tracks the runtime state of a skill on an entity.
 //! - **[`SkillStatus`]** — An enum representing the skill's runtime status (Ready, Cooling, etc.).
-//! - **[`SkillPlugin`]** — Registers the asset type and component with Bevy.
+//! - **[`SkillFeatureBuilderContext`]** — Context passed to [`SkillFeatureBuilder`].
+//! - **[`BuildError`]** — Error type for builder operations.
+//! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
+//! - **[`SkillFeatureBuilderContainer`]** — A [`Resource`] that maps feature ids to builders.
+//! - **[`SkillPlugin`]** — Registers the asset type, component, and container with Bevy.
 
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -29,7 +33,29 @@ impl Plugin for SkillPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
+        app.init_resource::<SkillFeatureBuilderContainer>();
     }
+}
+
+// ---------------------------------------------------------------------------
+// Factory function
+// ---------------------------------------------------------------------------
+
+/// Create a skill bundle from a [`SkillDefinition`].
+///
+/// Returns a bundle containing a [`SkillInstance`] and a [`Name`] component.
+///
+/// This is the recommended way to attach a skill to an entity at spawn time:
+///
+/// ```ignore
+/// commands.spawn(skill(&my_skill_def));
+/// ```
+pub fn skill(definition: &SkillDefinition) -> impl Bundle {
+    let instance = SkillInstance::new(&definition.id);
+    (
+        Name::new(format!("Skill ({})", definition.name)),
+        instance,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -121,17 +147,13 @@ impl SkillDefinition {
 
 /// Runtime state of a single skill on an entity.
 ///
-/// Each instance tracks its own cooldown timer, charges, and status.
+/// Each instance tracks its own charges and status.
 /// It references a [`SkillDefinition`] via `skill_id`.
 #[derive(Component, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Component)]
 pub struct SkillInstance {
     /// The [`SkillDefinition`] ID this instance refers to.
     pub skill_id: String,
-    /// Remaining cooldown in seconds; the skill is usable when this is `≤ 0.0`.
-    pub cooldown_timer: f32,
-    /// Total cooldown duration in seconds — the value `cooldown_timer` resets to after use.
-    pub cooldown_seconds: f32,
     /// Current charge count. At least 1 charge is required to use the skill.
     pub charges: u32,
     /// Maximum charge count. `0` means no charge system (cooldown only).
@@ -141,14 +163,12 @@ pub struct SkillInstance {
 }
 
 impl SkillInstance {
-    /// Create a new [`SkillInstance`] with the given `skill_id` and `cooldown_seconds`.
+    /// Create a new [`SkillInstance`] with the given `skill_id`.
     ///
     /// The instance starts in [`SkillStatus::Ready`] with zero charges (no charge system).
-    pub fn new(skill_id: impl Into<String>, cooldown_seconds: f32) -> Self {
+    pub fn new(skill_id: impl Into<String>) -> Self {
         Self {
             skill_id: skill_id.into(),
-            cooldown_timer: 0.0,
-            cooldown_seconds,
             charges: 0,
             max_charges: 0,
             status: SkillStatus::Ready,
@@ -157,10 +177,9 @@ impl SkillInstance {
 
     /// Returns `true` when the skill can be used:
     /// - status is `Ready`
-    /// - cooldown timer has expired
     /// - has at least one charge (when a charge system is active)
     pub fn ready(&self) -> bool {
-        if self.status != SkillStatus::Ready || self.cooldown_timer > 0.0 {
+        if self.status != SkillStatus::Ready {
             return false;
         }
         if self.max_charges > 0 && self.charges == 0 {
@@ -169,7 +188,7 @@ impl SkillInstance {
         true
     }
 
-    /// Use the skill: consume one charge and reset the cooldown.
+    /// Use the skill: consume one charge and set status to [`SkillStatus::Cooling`].
     ///
     /// Panics if the skill is not [`ready`](Self::ready).
     pub fn use_skill(&mut self) {
@@ -177,24 +196,7 @@ impl SkillInstance {
         if self.max_charges > 0 {
             self.charges = self.charges.saturating_sub(1);
         }
-        self.cooldown_timer = self.cooldown_seconds;
         self.status = SkillStatus::Cooling;
-    }
-
-    /// Advance the cooldown timer by `delta` seconds.
-    ///
-    /// When the timer reaches zero the status becomes [`SkillStatus::Ready`] again,
-    /// provided there is at least one charge (or no charge system is active).
-    pub fn tick(&mut self, delta: f32) {
-        if self.cooldown_timer > 0.0 {
-            self.cooldown_timer = (self.cooldown_timer - delta).max(0.0);
-        }
-        if self.cooldown_timer <= 0.0 && self.status != SkillStatus::Disabled {
-            let has_charge = self.max_charges == 0 || self.charges > 0;
-            if has_charge {
-                self.status = SkillStatus::Ready;
-            }
-        }
     }
 
     /// Add `count` charges (capped at `max_charges`).
@@ -216,6 +218,52 @@ pub enum SkillStatus {
     Channeling,
     /// Disabled (silenced, stunned, etc.).
     Disabled,
+}
+
+// ---------------------------------------------------------------------------
+// CooldownFeature
+// ---------------------------------------------------------------------------
+
+/// A cooldown feature for a skill.
+///
+/// Carries the cooldown duration in seconds. Implements
+/// [`FromSkillFeatureDefinition`] and [`IntoSkillFeatureDefinition`] for
+/// bidirectional conversion with [`SkillFeatureDefinition`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct CooldownFeature {
+    /// Cooldown duration in seconds. Defaults to `1.0`.
+    pub cooldown_duration: f32,
+}
+
+impl CooldownFeature {
+    /// Create a new [`CooldownFeature`] with the default duration of 1.0 s.
+    pub fn new() -> Self {
+        Self {
+            cooldown_duration: 1.0,
+        }
+    }
+}
+
+impl Default for CooldownFeature {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl FromSkillFeatureDefinition for CooldownFeature {
+    fn from_feature(def: &SkillFeatureDefinition) -> Option<Self> {
+        Some(Self {
+            cooldown_duration: def.get("cooldown_duration").unwrap_or(1.0),
+        })
+    }
+}
+
+impl IntoSkillFeatureDefinition for CooldownFeature {
+    fn into_feature(self, id: impl Into<String>) -> SkillFeatureDefinition {
+        let mut def = SkillFeatureDefinition::new(id);
+        def.set("cooldown_duration", self.cooldown_duration);
+        def
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -264,4 +312,120 @@ pub trait FromSkillFeatureDefinition: Sized {
 pub trait IntoSkillFeatureDefinition {
     /// Convert `self` into a [`SkillFeatureDefinition`] with the given feature `id`.
     fn into_feature(self, id: impl Into<String>) -> SkillFeatureDefinition;
+}
+
+// ---------------------------------------------------------------------------
+// SkillFeatureBuilder
+// ---------------------------------------------------------------------------
+
+/// Context passed to [`SkillFeatureBuilder::build`].
+///
+/// Carries the feature definition to build from, the skill entity,
+/// and the target (owner/caster) entity.
+pub struct SkillFeatureBuilderContext {
+    /// The [`SkillFeatureDefinition`] to build from.
+    pub feature: SkillFeatureDefinition,
+    /// The skill entity that is being executed.
+    pub skill: Entity,
+    /// The entity this skill belongs to (the owner/caster).
+    pub target: Entity,
+}
+
+/// Error returned when building a skill feature entity fails.
+#[derive(Debug)]
+pub enum BuildError {
+    /// No builder is registered for the given feature id.
+    MissingBuilder(String),
+    /// The builder encountered an error during construction.
+    BuildFailed(String),
+}
+
+impl std::fmt::Display for BuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingBuilder(id) => write!(f, "no builder registered for feature '{id}'"),
+            Self::BuildFailed(msg) => write!(f, "build failed: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for BuildError {}
+
+/// Trait for building entities from a [`SkillFeatureDefinition`].
+///
+/// Implementors define how a specific skill feature (projectile, AoE, summon, etc.)
+/// is spawned into the ECS world. The [`build`](SkillFeatureBuilder::build) method
+/// receives `&mut Commands` and a [`SkillFeatureBuilderContext`].
+pub trait SkillFeatureBuilder: Send + Sync {
+    /// Build an entity from the feature definition and context.
+    ///
+    /// Returns the spawned entity's [`Entity`] ID on success.
+    fn build<'w, 's>(
+        &self,
+        commands: &'w mut Commands<'w, 's>,
+        ctx: SkillFeatureBuilderContext,
+    ) -> Result<Entity, BuildError>;
+}
+
+// ---------------------------------------------------------------------------
+// SkillFeatureBuilderContainer (Resource)
+// ---------------------------------------------------------------------------
+
+/// A Bevy [`Resource`] that maps feature ids to [`SkillFeatureBuilder`] closures.
+///
+/// Use [`register`](SkillFeatureBuilderContainer::register) to register builders,
+/// and [`build`](SkillFeatureBuilderContainer::build) to construct entities by
+/// feature id at runtime.
+#[derive(Resource)]
+pub struct SkillFeatureBuilderContainer {
+    builders: HashMap<
+        String,
+        Box<dyn for<'w, 's> Fn(
+            &'w mut Commands<'w, 's>,
+            SkillFeatureBuilderContext,
+        ) -> Result<Entity, BuildError> + Send + Sync>,
+    >,
+}
+
+impl SkillFeatureBuilderContainer {
+    /// Create an empty container.
+    ///
+    /// Builders must be registered via [`register`](SkillFeatureBuilderContainer::register)
+    /// by individual skill systems (e.g. projectile plugin, AoE plugin).
+    pub fn new() -> Self {
+        Self {
+            builders: HashMap::new(),
+        }
+    }
+
+    /// Register a named builder from a [`SkillFeatureBuilder`] implementor.
+    pub fn register(&mut self, id: impl Into<String>, builder: impl SkillFeatureBuilder + 'static) {
+        let id = id.into();
+        self.builders.insert(
+            id,
+            Box::new(move |commands, ctx| builder.build(commands, ctx)),
+        );
+    }
+
+    /// Look up a builder by feature id and execute it to spawn an entity.
+    ///
+    /// Returns `Err(BuildError::MissingBuilder)` if no builder is registered
+    /// for `id`, or forwards errors from the builder itself.
+    pub fn build<'w, 's>(
+        &self,
+        id: &str,
+        commands: &'w mut Commands<'w, 's>,
+        ctx: SkillFeatureBuilderContext,
+    ) -> Result<Entity, BuildError> {
+        self.builders
+            .get(id)
+            .ok_or_else(|| BuildError::MissingBuilder(id.to_string()))
+            .and_then(|f| f(commands, ctx))
+    }
+}
+
+impl Default for SkillFeatureBuilderContainer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
