@@ -17,6 +17,7 @@ use crate::asset_tracking::LoadResource;
 use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
 use crate::common::{AttackRange, EnemyTarget, EnemyTargetList};
 use crate::enemy::Enemy;
+use crate::skill::{SkillDefinition, SkillFeatureBuilderContainer};
 
 pub(super) struct RolePlugin;
 
@@ -70,6 +71,8 @@ pub fn role<'w>(
     row: u32,
     role_assets: &assets::RoleAssets,
     template_assets: &Assets<AttributeTemplate>,
+    skill_container: &SkillFeatureBuilderContainer,
+    skill_assets: &Assets<SkillDefinition>,
 ) -> Entity {
     let attrs = template_assets
         .get(&role_assets.archer_attributes)
@@ -85,10 +88,15 @@ pub fn role<'w>(
             a.insert("attack_range", Attribute::new(2.0));
             a
         });
+    let archer_skill = skill_assets
+        .get(&role_assets.archer_skill)
+        .expect("archer skill asset not loaded");
     let ctx = RoleBuilderContext {
         position: (column, row),
         parent: Some(spawner.target_entity()),
         attributes: attrs,
+        skill_container,
+        archer_skill,
     };
     let mut cmds = spawner.commands();
     container
@@ -102,7 +110,7 @@ pub fn role<'w>(
 /// [`AttributeSet`] for combat stats.
 /// The `Commands` reference is passed directly to
 /// [`RoleBuilder::build`] instead of being stored here.
-pub struct RoleBuilderContext {
+pub struct RoleBuilderContext<'a> {
     /// Grid position as `(column, row)`. Column maps to the X axis,
     /// row to the Y axis (origin at top-left).
     pub position: (u32, u32),
@@ -112,6 +120,11 @@ pub struct RoleBuilderContext {
     /// Attribute set for combat stats. The builder should use these
     /// attributes when constructing the entity.
     pub attributes: AttributeSet,
+    /// Skill feature builder container, used to apply skill feature builders
+    /// when creating skill child entities.
+    pub skill_container: &'a SkillFeatureBuilderContainer,
+    /// The archer's skill definition, resolved from the asset handle.
+    pub archer_skill: &'a SkillDefinition,
 }
 
 /// Error returned when building a role entity fails.
@@ -141,10 +154,10 @@ impl std::error::Error for BuildError {}
 /// a `&mut Commands` and a [`RoleBuilderContext`].
 pub trait RoleBuilder: Send + Sync {
     /// Build a role entity and return its `Entity` ID on success.
-    fn build<'w, 's>(
+    fn build<'w, 's, 'a>(
         &self,
         commands: &'w mut Commands<'w, 's>,
-        ctx: RoleBuilderContext,
+        ctx: RoleBuilderContext<'a>,
     ) -> Result<Entity, BuildError>;
 }
 
@@ -156,7 +169,7 @@ pub trait RoleBuilder: Send + Sync {
 pub struct RoleBuilderContainer {
     builders: HashMap<
         String,
-        Box<dyn for<'w, 's> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext) -> Result<Entity, BuildError> + Send + Sync>,
+        Box<dyn for<'w, 's, 'a> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext<'a>) -> Result<Entity, BuildError> + Send + Sync>,
     >,
 }
 
@@ -184,11 +197,11 @@ impl RoleBuilderContainer {
     ///
     /// Returns `Err(BuildError::MissingBuilder)` if no builder is registered
     /// for `name`, or forwards errors from the builder itself.
-    pub fn build<'w, 's>(
+    pub fn build<'w, 's, 'a>(
         &self,
         name: &str,
         commands: &'w mut Commands<'w, 's>,
-        ctx: RoleBuilderContext,
+        ctx: RoleBuilderContext<'a>,
     ) -> Result<Entity, BuildError> {
         self.builders
             .get(name)

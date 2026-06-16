@@ -6,7 +6,7 @@
 
 - 向 Bevy 应用注册 [`SkillDefinition`] 为 `Asset`，使其可通过资产系统加载和访问。
 - 向 Bevy 应用注册 [`SkillInstance`] 组件到类型反射系统（Type Registry）。
-- 初始化 [`SkillFeatureBuilderContainer`] 资源，用于管理和查找技能特征构建器。
+- 初始化 [`SkillFeatureBuilderContainer`] 资源，用于管理和查找技能特征构建器。创建容器时 `"cooldown"` 特征的 [`CooldownFeatureBuilder`] 已默认注册。
 - 注册 [`SkillDefinitionLoader`] 资产加载器，支持从 `.skill.toml` 文件加载技能定义。
 
 ## 定义
@@ -36,6 +36,7 @@ impl Plugin for SkillPlugin {
 | 组件 | 说明 |
 |------|------|
 | [`SkillInstance`] | 存储技能在实体上的运行时状态（充能层数、状态）。通过 `register_type` 注册到类型反射系统。 |
+| [`CooldownFeature`] | 冷却特征组件，记录冷却时长。通过 `register_type` 注册到类型反射系统。 |
 
 ## 注册的资源
 
@@ -51,14 +52,18 @@ impl Plugin for SkillPlugin {
 
 ## 工厂函数
 
-`skill` 工厂函数提供从 [`SkillDefinition`] 快速创建技能 Bundle 的方式：
+`skill` 工厂函数提供从 [`SkillDefinition`] 快速创建技能实体并应用特征构建器的方式：
 
 ```rust
-/// 从 SkillDefinition 创建一个技能 Bundle。
-pub fn skill(definition: &SkillDefinition) -> impl Bundle { ... }
+/// 从 SkillDefinition 创建一个技能子实体，并应用其特征构建器。
+pub fn skill(
+    spawner: &mut ChildSpawnerCommands,
+    container: &SkillFeatureBuilderContainer,
+    definition: &SkillDefinition,
+) -> Entity { ... }
 ```
 
-返回包含 [`SkillInstance`] 和 `Name` 组件的 Bundle，推荐在实体生成时使用。
+创建技能实体作为 `spawner` 的子实体，包含 [`SkillInstance`] 和 `Name` 组件，然后遍历 `definition.features` 使用 [`SkillFeatureBuilderContainer`] 应用每个特征对应的构建器。
 
 ## 与现有模块的关系
 
@@ -75,5 +80,7 @@ pub fn skill(definition: &SkillDefinition) -> impl Bundle { ... }
 [`SkillInstance`]: ./SkillInstance.md
 [`SkillFeatureBuilderContainer`]: ./SkillFeatureBuilderContainer.md
 [`SkillFeatureBuilder`]: ./SkillFeatureBuilder.md
+[`CooldownFeature`]: ./CooldownFeature.md
+[`CooldownFeatureBuilder`]: ./CooldownFeatureBuilder.md
 [`SkillDefinitionLoader`]: ./SkillDefinitionLoader.md
 [`AttributePlugin`]: ../attribute/AttributePlugin.md

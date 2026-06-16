@@ -1,6 +1,6 @@
 # CooldownFeature
 
-`CooldownFeature` 是一个结构体，用于表示技能的**冷却特征**数据，包含冷却时长。它实现了 [`FromSkillFeatureDefinition`] 和 [`IntoSkillFeatureDefinition`] trait。
+`CooldownFeature` 是一个组件（Component），用于表示技能的**冷却特征**数据，包含冷却时长。它实现了 [`FromSkillFeatureDefinition`] 和 [`IntoSkillFeatureDefinition`] trait。
 
 ## 用途
 
@@ -11,8 +11,9 @@
 ## 定义
 
 ```rust
-/// 冷却特征数据。
-#[derive(Debug, Clone, PartialEq)]
+/// 冷却特征组件。
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
 pub struct CooldownFeature {
     /// 冷却时长（秒），默认值 1.0。
     pub cooldown_duration: f32,
@@ -89,6 +90,7 @@ let feature = cooldown.into_feature("cooldown");
 - **[`SkillInstance`]**：`CooldownFeature.cooldown_duration` 可作为创建 [`SkillInstance`] 时的冷却参数输入。
 - **[`FromSkillFeatureDefinition`]**：`CooldownFeature` 实现了该 trait，提供从特征字典到结构体的转换能力。
 - **[`IntoSkillFeatureDefinition`]**：`CooldownFeature` 实现了该 trait，提供从结构体到特征字典的转换能力。
+- **[`CooldownFeatureBuilder`]**：`CooldownFeatureBuilder` 根据 [`SkillFeatureDefinition`] 中的冷却数据在技能实体上附加 `CooldownFeature` 和 [`CoolingTimer`] 组件，并将技能实体设置为持有者实体的子实体。`CooldownFeature` 负责数据转换，`CooldownFeatureBuilder` 负责实体构建。
 
 [`FromSkillFeatureDefinition`]: ./FromSkillFeatureDefinition.md
 [`IntoSkillFeatureDefinition`]: ./IntoSkillFeatureDefinition.md
@@ -96,3 +98,4 @@ let feature = cooldown.into_feature("cooldown");
 [`SkillDefinition`]: ./SkillDefinition.md
 [`SkillDefinition::get_feature`]: ./SkillDefinition.md#方法
 [`SkillInstance`]: ./SkillInstance.md
+[`CooldownFeatureBuilder`]: ./CooldownFeatureBuilder.md

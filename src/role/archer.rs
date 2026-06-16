@@ -16,6 +16,7 @@ use crate::common::{
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
+use crate::skill::skill;
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -69,7 +70,6 @@ impl Plugin for ArcherPlugin {
         app.register_type::<Archer>();
         app.register_type::<AttackSpeed>();
         app.register_type::<ProjectileDamage>();
-        app.register_type::<CoolingTimer>();
         app.register_type::<ArcherIdle>();
         app.register_state_component::<ArcherIdle>();
         app.register_type::<ArcherCombat>();
@@ -128,7 +128,11 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
 }
 
 impl RoleBuilder for ArcherRoleBuilder {
-    fn build<'w, 's>(&self, commands: &'w mut Commands<'w, 's>, ctx: RoleBuilderContext) -> Result<Entity, BuildError> {
+    fn build<'w, 's, 'a>(
+        &self,
+        commands: &'w mut Commands<'w, 's>,
+        ctx: RoleBuilderContext<'a>,
+    ) -> Result<Entity, BuildError> {
         let (col, row) = ctx.position;
         let cell_size = 64.0;
         let attack_range_val = ctx.attributes
@@ -161,7 +165,6 @@ impl RoleBuilder for ArcherRoleBuilder {
             AttackRange(attack_range_val),
             AttackSpeed(attack_speed_val),
             ProjectileDamage(projectile_damage_val),
-            CoolingTimer(Timer::from_seconds(1.0, TimerMode::Once)),
             EnemyTarget(None),
             EnemyTargetList(Vec::new()),
         ));
@@ -180,6 +183,7 @@ impl RoleBuilder for ArcherRoleBuilder {
                     Transform::default(),
                 ))
                 .id();
+            skill(parent, ctx.skill_container, ctx.archer_skill);
         });
         entity.insert(BulletPositionTarget(bullet_position_entity));
 

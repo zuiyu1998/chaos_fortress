@@ -14,10 +14,13 @@
 //! - **[`BuildError`]** — Error type for builder operations.
 //! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
 //! - **[`SkillFeatureBuilderContainer`]** — A [`Resource`] that maps feature ids to builders.
+//! - **[`CooldownFeatureBuilder`]** — A [`SkillFeatureBuilder`] that attaches a [`CoolingTimer`] to the skill entity.
 //! - **[`SkillPlugin`]** — Registers the asset type, component, and container with Bevy.
 
 use bevy::prelude::*;
 use std::collections::HashMap;
+
+use crate::common::CoolingTimer;
 
 pub(super) mod loader;
 
@@ -35,6 +38,7 @@ impl Plugin for SkillPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
+        app.register_type::<CooldownFeature>();
         app.init_resource::<SkillFeatureBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
     }
@@ -44,21 +48,35 @@ impl Plugin for SkillPlugin {
 // Factory function
 // ---------------------------------------------------------------------------
 
-/// Create a skill bundle from a [`SkillDefinition`].
+/// Spawn a skill entity as a child of `target` from a [`SkillDefinition`].
 ///
-/// Returns a bundle containing a [`SkillInstance`] and a [`Name`] component.
+/// Returns the spawned child entity's [`Entity`] ID.
 ///
-/// This is the recommended way to attach a skill to an entity at spawn time:
+/// Creates a [`SkillInstance`] and a [`Name`] component on a new child entity,
+/// then iterates over `definition.features` and uses the [`SkillFeatureBuilderContainer`]
+/// to apply each feature's builder with `skill` set to the child and `target` set
+/// to the parent.
 ///
 /// ```ignore
-/// commands.spawn(skill(&my_skill_def));
+/// let skill_entity = skill(&mut spawner, &container, &my_skill_def);
 /// ```
-pub fn skill(definition: &SkillDefinition) -> impl Bundle {
-    let instance = SkillInstance::new(&definition.id);
-    (
-        Name::new(format!("Skill ({})", definition.name)),
-        instance,
-    )
+pub fn skill(
+    spawner: &mut ChildSpawnerCommands,
+    container: &SkillFeatureBuilderContainer,
+    definition: &SkillDefinition,
+) -> Entity {
+    let target = spawner.target_entity();
+    let mut commands = spawner.commands();
+    let skill_entity = commands
+        .spawn((
+            Name::new(format!("Skill ({})", definition.name)),
+            SkillInstance::new(&definition.id),
+        ))
+        .id();
+
+    container.build_all(definition, skill_entity, target, &mut commands);
+
+    skill_entity
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +250,8 @@ pub enum SkillStatus {
 /// Carries the cooldown duration in seconds. Implements
 /// [`FromSkillFeatureDefinition`] and [`IntoSkillFeatureDefinition`] for
 /// bidirectional conversion with [`SkillFeatureDefinition`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
 pub struct CooldownFeature {
     /// Cooldown duration in seconds. Defaults to `1.0`.
     pub cooldown_duration: f32,
@@ -266,6 +285,44 @@ impl IntoSkillFeatureDefinition for CooldownFeature {
         let mut def = SkillFeatureDefinition::new(id);
         def.set("cooldown_duration", self.cooldown_duration);
         def
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CooldownFeatureBuilder
+// ---------------------------------------------------------------------------
+
+/// Builder that attaches a [`CoolingTimer`] to the skill entity and sets its
+/// parent to the target entity.
+///
+/// Reads `cooldown_duration` from the feature's numeric dictionary (default 1.0 s)
+/// and inserts `CoolingTimer(Timer::from_seconds(cooldown_duration, TimerMode::Once))`
+/// on `ctx.skill`, then parents the skill entity to `ctx.target`.
+pub struct CooldownFeatureBuilder;
+
+impl SkillFeatureBuilder for CooldownFeatureBuilder {
+    fn build(
+        &self,
+        commands: &mut Commands,
+        ctx: SkillFeatureBuilderContext,
+    ) -> Result<Entity, BuildError> {
+        let cooldown_duration = ctx
+            .feature
+            .get("cooldown_duration")
+            .unwrap_or(1.0);
+
+        commands
+            .entity(ctx.skill)
+            .insert((
+                CooldownFeature { cooldown_duration },
+                CoolingTimer(Timer::from_seconds(
+                    cooldown_duration,
+                    TimerMode::Once,
+                )),
+            ))
+            .set_parent_in_place(ctx.target);
+
+        Ok(ctx.skill)
     }
 }
 
@@ -363,9 +420,9 @@ pub trait SkillFeatureBuilder: Send + Sync {
     /// Build an entity from the feature definition and context.
     ///
     /// Returns the spawned entity's [`Entity`] ID on success.
-    fn build<'w, 's>(
+    fn build(
         &self,
-        commands: &'w mut Commands<'w, 's>,
+        commands: &mut Commands,
         ctx: SkillFeatureBuilderContext,
     ) -> Result<Entity, BuildError>;
 }
@@ -383,10 +440,7 @@ pub trait SkillFeatureBuilder: Send + Sync {
 pub struct SkillFeatureBuilderContainer {
     builders: HashMap<
         String,
-        Box<dyn for<'w, 's> Fn(
-            &'w mut Commands<'w, 's>,
-            SkillFeatureBuilderContext,
-        ) -> Result<Entity, BuildError> + Send + Sync>,
+        Box<dyn Fn(&mut Commands, SkillFeatureBuilderContext) -> Result<Entity, BuildError> + Send + Sync>,
     >,
 }
 
@@ -396,9 +450,20 @@ impl SkillFeatureBuilderContainer {
     /// Builders must be registered via [`register`](SkillFeatureBuilderContainer::register)
     /// by individual skill systems (e.g. projectile plugin, AoE plugin).
     pub fn new() -> Self {
-        Self {
-            builders: HashMap::new(),
-        }
+        let mut builders: HashMap<
+            String,
+            Box<dyn Fn(&mut Commands, SkillFeatureBuilderContext) -> Result<Entity, BuildError> + Send + Sync>,
+        > = HashMap::new();
+
+        // Register built-in default builders.
+        builders.insert(
+            "cooldown".to_string(),
+            Box::new(|commands: &mut Commands, ctx: SkillFeatureBuilderContext| {
+                CooldownFeatureBuilder.build(commands, ctx)
+            }),
+        );
+
+        Self { builders }
     }
 
     /// Register a named builder from a [`SkillFeatureBuilder`] implementor.
@@ -406,7 +471,9 @@ impl SkillFeatureBuilderContainer {
         let id = id.into();
         self.builders.insert(
             id,
-            Box::new(move |commands, ctx| builder.build(commands, ctx)),
+            Box::new(move |commands: &mut Commands, ctx: SkillFeatureBuilderContext| {
+                builder.build(commands, ctx)
+            }),
         );
     }
 
@@ -414,16 +481,41 @@ impl SkillFeatureBuilderContainer {
     ///
     /// Returns `Err(BuildError::MissingBuilder)` if no builder is registered
     /// for `id`, or forwards errors from the builder itself.
-    pub fn build<'w, 's>(
+    pub fn build(
         &self,
         id: &str,
-        commands: &'w mut Commands<'w, 's>,
+        commands: &mut Commands,
         ctx: SkillFeatureBuilderContext,
     ) -> Result<Entity, BuildError> {
         self.builders
             .get(id)
             .ok_or_else(|| BuildError::MissingBuilder(id.to_string()))
             .and_then(|f| f(commands, ctx))
+    }
+
+    /// Build all features from a [`SkillDefinition`] on the given entities.
+    ///
+    /// `skill_entity` is the skill child entity; `target` is the owner/parent entity.
+    /// Each feature builder receives both.
+    pub fn build_all(
+        &self,
+        definition: &SkillDefinition,
+        skill_entity: Entity,
+        target: Entity,
+        commands: &mut Commands,
+    ) {
+        for feature in &definition.features {
+            let ctx = SkillFeatureBuilderContext {
+                feature: feature.clone(),
+                skill: skill_entity,
+                target,
+            };
+            if let Some(builder) = self.builders.get(&feature.id) {
+                if let Err(e) = builder(commands, ctx) {
+                    bevy::log::warn!("skill feature '{}' failed: {e}", feature.id);
+                }
+            }
+        }
     }
 }
 
