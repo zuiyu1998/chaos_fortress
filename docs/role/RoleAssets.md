@@ -10,6 +10,8 @@
 pub struct RoleAssets {
     #[dependency]
     pub archer_attributes: Handle<AttributeTemplate>,
+    #[dependency]
+    pub archer_skill: Handle<SkillDefinition>,
 }
 ```
 
@@ -18,6 +20,7 @@ pub struct RoleAssets {
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `archer_attributes` | `Handle<AttributeTemplate>` | 弓箭手属性模板，从 `assets/attribute/archer.attribute_template.csv` 加载 |
+| `archer_skill` | `Handle<SkillDefinition>` | 弓箭手技能定义，从 `assets/skill/archer.skill.toml` 加载 |
 
 `#[dependency]` 属性告诉 Bevy 该句柄是一个依赖资源，只有在其对应资产（`AttributeTemplate`）完全加载后，`RoleAssets` 才会被视为就绪。
 

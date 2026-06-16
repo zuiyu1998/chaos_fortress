@@ -67,12 +67,12 @@ impl Plugin for AppPlugin {
             audio::plugin,
             bullet::BulletPlugin,
             battle::BattlePlugin,
+            skill::SkillPlugin,
             common::CommonPlugin,
             enemy::EnemyPlugin,
             level::plugin,
             map::plugin,
             role::RolePlugin,
-            skill::SkillPlugin,
         ));
         app.add_plugins((
             #[cfg(feature = "dev")]

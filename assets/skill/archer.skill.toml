@@ -1,0 +1,19 @@
+[skill]
+id = "archer_shot"
+name = "Archer Shot"
+
+[[features]]
+id = "cooldown"
+cooldown_duration = 1.0
+
+[[features]]
+id = "damage"
+base_damage = 50.0
+ratio = 1.5
+crit_bonus = 0.2
+
+[[features]]
+id = "range"
+radius = 3.0
+min_range = 1.0
+max_range = 8.0

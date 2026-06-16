@@ -7,6 +7,7 @@
 use bevy::prelude::*;
 
 use crate::attribute::AttributeTemplate;
+use crate::skill::SkillDefinition;
 
 /// Collection of role-related asset handles.
 ///
@@ -19,6 +20,10 @@ pub struct RoleAssets {
     /// `assets/attribute/archer.attribute_template.csv`.
     #[dependency]
     pub archer_attributes: Handle<AttributeTemplate>,
+    /// Loaded skill definition for archer entities, sourced from
+    /// `assets/skill/archer.skill.toml`.
+    #[dependency]
+    pub archer_skill: Handle<SkillDefinition>,
 }
 
 impl FromWorld for RoleAssets {
@@ -26,6 +31,7 @@ impl FromWorld for RoleAssets {
         let assets = world.resource::<AssetServer>();
         Self {
             archer_attributes: assets.load("attribute/archer.attribute_template.csv"),
+            archer_skill: assets.load("skill/archer.skill.toml"),
         }
     }
 }
