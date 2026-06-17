@@ -98,7 +98,7 @@ impl FromSkillFeatureDefinition for CooldownFeature {
 
 - **[`SkillFeatureDefinition`]**：`FromSkillFeatureDefinition` 从 `SkillFeatureDefinition` 的 `features` 字典中读取数值，是该 trait 的唯一输入来源。
 - **[`SkillDefinition`]**：通过 [`SkillDefinition::get_feature`] 获取指定 `id` 的 [`SkillFeatureDefinition`]，再调用 `from_feature` 转换为具体类型。
-- **[`SkillInstance`]**：运行时可通过 `SkillInstance.skill_id` 在 `Assets<SkillDefinition>` 中查找 [`SkillDefinition`]，然后遍历其 `features` 列表，将每个特征转换为对应的运行时组件。
+- **[`SkillInstance`]**：运行时可通过 `SkillInstance.skill` 句柄在 `Assets<SkillDefinition>` 中查找 [`SkillDefinition`]，然后遍历其 `features` 列表，将每个特征转换为对应的运行时组件。
 - **`run_skill` 系统**：在施放技能时，通过 `FromSkillFeatureDefinition` 将技能数值特征解析为具体参数结构体，参与伤害计算和效果判定。
 
 ### 典型使用流程

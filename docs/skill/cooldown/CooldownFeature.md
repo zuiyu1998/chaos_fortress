@@ -91,7 +91,6 @@ let feature = cooldown.into_feature("cooldown");
 - **[`FromSkillFeatureDefinition`]**：`CooldownFeature` 实现了该 trait，提供从特征字典到结构体的转换能力。
 - **[`IntoSkillFeatureDefinition`]**：`CooldownFeature` 实现了该 trait，提供从结构体到特征字典的转换能力。
 - **[`CooldownFeatureBuilder`]**：`CooldownFeatureBuilder` 根据 [`SkillFeatureDefinition`] 中的冷却数据在技能实体上附加 `CooldownFeature` 和 [`CoolingTimer`] 组件，并将技能实体设置为持有者实体的子实体。`CooldownFeature` 负责数据转换，`CooldownFeatureBuilder` 负责实体构建。
-- **[`tick_cooldown_features`]**：该 Update 系统每帧推进技能实体上的 [`CoolingTimer`]，冷却完成时在父实体的 [`SkillRunContext`] 中记录 `CooldownCompleted` 结果。
 
 [`FromSkillFeatureDefinition`]: ./FromSkillFeatureDefinition.md
 [`IntoSkillFeatureDefinition`]: ./IntoSkillFeatureDefinition.md
@@ -100,5 +99,4 @@ let feature = cooldown.into_feature("cooldown");
 [`SkillDefinition::get_feature`]: ./SkillDefinition.md#方法
 [`SkillInstance`]: ./SkillInstance.md
 [`CooldownFeatureBuilder`]: ./CooldownFeatureBuilder.md
-[`tick_cooldown_features`]: ./SkillPlugin.md#注册的系统
 [`SkillRunContext`]: ./SkillRunContext.md

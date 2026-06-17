@@ -97,6 +97,7 @@ pub fn role<'w>(
         attributes: attrs,
         skill_container,
         archer_skill,
+        archer_skill_handle: role_assets.archer_skill.clone(),
     };
     let mut cmds = spawner.commands();
     container
@@ -125,6 +126,8 @@ pub struct RoleBuilderContext<'a> {
     pub skill_container: &'a SkillFeatureBuilderContainer,
     /// The archer's skill definition, resolved from the asset handle.
     pub archer_skill: &'a SkillDefinition,
+    /// The archer's skill handle, used when creating [`SkillInstance`](crate::skill::SkillInstance).
+    pub archer_skill_handle: Handle<SkillDefinition>,
 }
 
 /// Error returned when building a role entity fails.

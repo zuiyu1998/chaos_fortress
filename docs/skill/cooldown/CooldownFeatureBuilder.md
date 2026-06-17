@@ -88,8 +88,7 @@ fn setup_cooldown_builder(mut container: ResMut<SkillFeatureBuilderContainer>) {
 2. 技能施放时遍历 SkillDefinition.features。
 3. 遇到 id = "cooldown" 的特征时，在容器中查找 CooldownFeatureBuilder。
 4. 调用 builder.build(commands, ctx) 在技能实体上附加 CooldownFeature 和 CoolingTimer，并将技能实体设置为持有者实体的子实体。
-5. CoolingTimer 由 [`tick_cooldown_features`] 系统每帧推进，倒计时完成时在父实体的 [`SkillRunContext`] 中记录结果。
-6. 冷却完毕后技能可再次施放。
+5. 冷却完毕后技能可再次施放。
 ```
 
 [`SkillFeatureBuilder`]: ./SkillFeatureBuilder.md
@@ -98,4 +97,3 @@ fn setup_cooldown_builder(mut container: ResMut<SkillFeatureBuilderContainer>) {
 [`CooldownFeature`]: ./CooldownFeature.md
 [`CoolingTimer`]: ../common/CoolingTimer.md
 [`SkillRunContext`]: ./SkillRunContext.md
-[`tick_cooldown_features`]: ./SkillPlugin.md#注册的系统

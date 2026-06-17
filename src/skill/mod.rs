@@ -8,8 +8,7 @@
 //! - **[`SkillDefinition`]** — An [`Asset`] that defines a skill template (id, name, features).
 //! - **[`SkillFeatureDefinition`]** — A plain struct holding a numeric parameter dictionary,
 //!   embedded inside [`SkillDefinition`].
-//! - **[`SkillInstance`]** — A [`Component`] that tracks the runtime state of a skill on an entity.
-//! - **[`SkillStatus`]** — An enum representing the skill's runtime status (Ready, Cooling, etc.).
+//! - **[`SkillInstance`]** — A [`Component`] that binds a skill asset handle to an entity.
 //! - **[`SkillFeatureBuilderContext`]** — Context passed to [`SkillFeatureBuilder`].
 //! - **[`BuildError`]** — Error type for builder operations.
 //! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
@@ -19,13 +18,13 @@
 //! - **[`SkillTarget`]** — A [`Component`] referencing the skill entity, attached on the owner.
 //! - **[`SkillPlugin`]** — Registers the asset type, component, and container with Bevy.
 
-use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
-use crate::common::CoolingTimer;
-
+pub(super) mod cooldown;
 pub(super) mod loader;
+
+pub use cooldown::*;
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -46,8 +45,6 @@ impl Plugin for SkillPlugin {
         app.register_type::<SkillTarget>();
         app.init_resource::<SkillFeatureBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
-
-        app.add_systems(Update, tick_cooldown_features);
     }
 }
 
@@ -59,25 +56,28 @@ impl Plugin for SkillPlugin {
 ///
 /// Returns the spawned child entity's [`Entity`] ID.
 ///
-/// Creates a [`SkillInstance`] and a [`Name`] component on a new child entity,
-/// then iterates over `definition.features` and uses the [`SkillFeatureBuilderContainer`]
-/// to apply each feature's builder with `skill` set to the child and `target` set
-/// to the parent.
+/// Creates a [`SkillInstance`] with the given `skill_handle` and a [`Name`] component
+/// on a new child entity, then iterates over `definition.features` and uses the
+/// [`SkillFeatureBuilderContainer`] to apply each feature's builder with `skill` set
+/// to the child and `target` set to the parent.
 ///
 /// ```ignore
-/// let skill_entity = skill(&mut spawner, &container, &my_skill_def);
+/// let skill_entity = skill(&mut spawner, &container, &my_skill_def, my_handle);
 /// ```
 pub fn skill(
     spawner: &mut ChildSpawnerCommands,
     container: &SkillFeatureBuilderContainer,
     definition: &SkillDefinition,
+    skill_handle: Handle<SkillDefinition>,
 ) -> Entity {
     let target = spawner.target_entity();
     let mut commands = spawner.commands();
     let skill_entity = commands
         .spawn((
             Name::new(format!("Skill ({})", definition.name)),
-            SkillInstance::new(&definition.id),
+            SkillInstance {
+                skill: skill_handle,
+            },
             SkillRunContext::new(target),
         ))
         .id();
@@ -174,168 +174,22 @@ impl SkillDefinition {
 // SkillInstance (Component)
 // ---------------------------------------------------------------------------
 
-/// Runtime state of a single skill on an entity.
+/// Component that binds a skill asset handle to an entity.
 ///
-/// Each instance tracks its own charges and status.
-/// It references a [`SkillDefinition`] via `skill_id`.
+/// Holds only a handle referencing a [`SkillDefinition`] asset.
+/// Runtime state such as cooldowns is managed by separate components
+/// (e.g. [`CoolingTimer`]).
 #[derive(Component, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Component)]
 pub struct SkillInstance {
-    /// The [`SkillDefinition`] ID this instance refers to.
-    pub skill_id: String,
-    /// Current charge count. At least 1 charge is required to use the skill.
-    pub charges: u32,
-    /// Maximum charge count. `0` means no charge system (cooldown only).
-    pub max_charges: u32,
-    /// Current runtime status.
-    pub status: SkillStatus,
-}
-
-impl SkillInstance {
-    /// Create a new [`SkillInstance`] with the given `skill_id`.
-    ///
-    /// The instance starts in [`SkillStatus::Ready`] with zero charges (no charge system).
-    pub fn new(skill_id: impl Into<String>) -> Self {
-        Self {
-            skill_id: skill_id.into(),
-            charges: 0,
-            max_charges: 0,
-            status: SkillStatus::Ready,
-        }
-    }
-
-    /// Returns `true` when the skill can be used:
-    /// - status is `Ready`
-    /// - has at least one charge (when a charge system is active)
-    pub fn ready(&self) -> bool {
-        if self.status != SkillStatus::Ready {
-            return false;
-        }
-        if self.max_charges > 0 && self.charges == 0 {
-            return false;
-        }
-        true
-    }
-
-    /// Use the skill: consume one charge and set status to [`SkillStatus::Cooling`].
-    ///
-    /// Panics if the skill is not [`ready`](Self::ready).
-    pub fn use_skill(&mut self) {
-        assert!(self.ready(), "use_skill called when skill is not ready");
-        if self.max_charges > 0 {
-            self.charges = self.charges.saturating_sub(1);
-        }
-        self.status = SkillStatus::Cooling;
-    }
-
-    /// Add `count` charges (capped at `max_charges`).
-    pub fn add_charge(&mut self, count: u32) {
-        if self.max_charges > 0 {
-            self.charges = (self.charges + count).min(self.max_charges);
-        }
-    }
-}
-
-/// Runtime status of a [`SkillInstance`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-pub enum SkillStatus {
-    /// Ready to be used.
-    Ready,
-    /// Currently cooling down.
-    Cooling,
-    /// Channeling — cannot be interrupted.
-    Channeling,
-    /// Disabled (silenced, stunned, etc.).
-    Disabled,
-}
-
-// ---------------------------------------------------------------------------
-// CooldownFeature
-// ---------------------------------------------------------------------------
-
-/// A cooldown feature for a skill.
-///
-/// Carries the cooldown duration in seconds. Implements
-/// [`FromSkillFeatureDefinition`] and [`IntoSkillFeatureDefinition`] for
-/// bidirectional conversion with [`SkillFeatureDefinition`].
-#[derive(Component, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Component)]
-pub struct CooldownFeature {
-    /// Cooldown duration in seconds. Defaults to `1.0`.
-    pub cooldown_duration: f32,
-}
-
-impl CooldownFeature {
-    /// Create a new [`CooldownFeature`] with the default duration of 1.0 s.
-    pub fn new() -> Self {
-        Self {
-            cooldown_duration: 1.0,
-        }
-    }
-}
-
-impl Default for CooldownFeature {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl FromSkillFeatureDefinition for CooldownFeature {
-    fn from_feature(def: &SkillFeatureDefinition) -> Option<Self> {
-        Some(Self {
-            cooldown_duration: def.get("cooldown_duration").unwrap_or(1.0),
-        })
-    }
-}
-
-impl IntoSkillFeatureDefinition for CooldownFeature {
-    fn into_feature(self, id: impl Into<String>) -> SkillFeatureDefinition {
-        let mut def = SkillFeatureDefinition::new(id);
-        def.set("cooldown_duration", self.cooldown_duration);
-        def
-    }
-}
-
-// ---------------------------------------------------------------------------
-// CooldownFeatureBuilder
-// ---------------------------------------------------------------------------
-
-/// Builder that attaches a [`CoolingTimer`] to the skill entity and sets its
-/// parent to the target entity.
-///
-/// Reads `cooldown_duration` from the feature's numeric dictionary (default 1.0 s)
-/// and inserts `CoolingTimer(Timer::from_seconds(cooldown_duration, TimerMode::Once))`
-/// on `ctx.skill`, then parents the skill entity to `ctx.target`.
-pub struct CooldownFeatureBuilder;
-
-impl SkillFeatureBuilder for CooldownFeatureBuilder {
-    fn build(
-        &self,
-        commands: &mut Commands,
-        ctx: SkillFeatureBuilderContext,
-    ) -> Result<Entity, BuildError> {
-        let cooldown_duration = ctx
-            .feature
-            .get("cooldown_duration")
-            .unwrap_or(1.0);
-
-        commands
-            .entity(ctx.skill)
-            .insert((
-                CooldownFeature { cooldown_duration },
-                CoolingTimer(Timer::from_seconds(
-                    cooldown_duration,
-                    TimerMode::Once,
-                )),
-            ))
-            .set_parent_in_place(ctx.target);
-
-        Ok(ctx.skill)
-    }
+    /// Handle to the [`SkillDefinition`] asset this instance refers to.
+    pub skill: Handle<SkillDefinition>,
 }
 
 // ---------------------------------------------------------------------------
 // SkillFeatureResult & SkillRunContext
+// ---------------------------------------------------------------------------
+
 // ---------------------------------------------------------------------------
 
 /// Reference to a skill entity, attached on the owner entity for easy access.
@@ -381,34 +235,7 @@ impl SkillRunContext {
     }
 }
 
-/// Marker result indicating that a cooldown feature has completed.
-#[derive(Debug)]
-pub struct CooldownCompleted;
-
-impl SkillFeatureResult for CooldownCompleted {
-    fn is_ok(&self) -> bool {
-        true
-    }
-}
-
-/// System that ticks [`CoolingTimer`] on skill entities and, when the timer
-/// finishes, records a [`CooldownCompleted`] result in the parent entity's
-/// [`SkillRunContext`].
-pub fn tick_cooldown_features(
-    time: Res<Time>,
-    mut skill_query: Query<(&mut CoolingTimer, &ChildOf), With<CooldownFeature>>,
-    mut parent_query: Query<&mut SkillRunContext>,
-) {
-    for (mut timer, child_of) in &mut skill_query {
-        timer.0.tick(time.delta());
-        if timer.0.just_finished() {
-            if let Ok(mut ctx) = parent_query.get_mut(child_of.get()) {
-                ctx.record_feature_result("cooldown", CooldownCompleted);
-            }
-        }
-    }
-}
-
+// ---------------------------------------------------------------------------
 // Traits
 // ---------------------------------------------------------------------------
 

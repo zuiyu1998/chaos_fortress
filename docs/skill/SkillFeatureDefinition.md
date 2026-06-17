@@ -50,7 +50,7 @@ impl SkillFeatureDefinition {
 ## 与现有模块的关系
 
 - **[`SkillDefinition`]**：`SkillFeatureDefinition` 作为 [`SkillDefinition`] 中 `features` 列表的一部分存在，为技能效果提供可调节的数值参数。
-- **[`SkillInstance`]**：运行时通过 [`SkillInstance.skill_id`] 在 `Assets<SkillDefinition>` 中查找对应的 [`SkillDefinition`]，再通过 `get_feature` 获取 `SkillFeatureDefinition` 中的数值参与计算。
+- **[`SkillInstance`]**：运行时通过 [`SkillInstance.skill`] 句柄在 `Assets<SkillDefinition>` 中查找对应的 [`SkillDefinition`]，再通过 `get_feature` 获取 `SkillFeatureDefinition` 中的数值参与计算。
 - **`run_skill` 系统**：在施放技能时，从 [`SkillDefinition`] 中读取 `SkillFeatureDefinition` 的数值参数（如伤害倍率、范围半径），参与效果计算。
 
 [`SkillDefinition`]: ./SkillDefinition.md

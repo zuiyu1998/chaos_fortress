@@ -184,7 +184,7 @@ impl RoleBuilder for ArcherRoleBuilder {
                     Transform::default(),
                 ))
                 .id();
-            skill_entity = skill(parent, ctx.skill_container, ctx.archer_skill);
+            skill_entity = skill(parent, ctx.skill_container, ctx.archer_skill, ctx.archer_skill_handle.clone());
         });
         entity.insert(BulletPositionTarget(bullet_position_entity));
         entity.insert(SkillTarget(skill_entity));

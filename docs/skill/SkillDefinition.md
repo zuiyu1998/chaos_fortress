@@ -44,7 +44,7 @@ impl SkillDefinition {
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | `String` | 技能唯一标识，用于被 [`SkillInstance`] 引用（通过 `skill_id` 匹配）。 |
+| `id` | `String` | 技能唯一标识，用于被 [`SkillInstance`] 引用（通过 `Handle<SkillDefinition>` 匹配）。 |
 | `name` | `String` | 技能显示名称，用于 UI 和日志。 |
 | `features` | `Vec<SkillFeatureDefinition>` | 技能包含的数值特征定义列表，每个元素代表一个特征维度（如伤害、范围、持续时间）。 |
 
@@ -84,9 +84,9 @@ fn system(skills: Res<Assets<SkillDefinition>>) {
 
 ## 与现有模块的关系
 
-- **[`SkillInstance`]**：[`SkillInstance.skill_id`] 引用 `SkillDefinition.id`，运行时通过 `skill_id` 在 `Assets<SkillDefinition>` 资源中查找对应的 `SkillDefinition` 资产获取技能模板数据。
+- **[`SkillInstance`]**：[`SkillInstance.skill`] 持有 `Handle<SkillDefinition>`，运行时通过该句柄在 `Assets<SkillDefinition>` 资源中查找对应的 `SkillDefinition` 资产获取技能模板数据。
 - **[`SkillFeatureDefinition`]**：`SkillDefinition` 通过 `features: Vec<SkillFeatureDefinition>` 包含多个数值特征定义，`get_feature` 方法提供按 `id` 查找的能力。`SkillFeatureDefinition` 是普通结构体（非 Component，非 Asset），作为 `SkillDefinition` 的一部分存在。
-- **`run_skill` 系统**：在施放技能时，通过 `SkillInstance.skill_id` 在 `Assets<SkillDefinition>` 中查询 `SkillDefinition`，再通过 `get_feature` 获取具体数值参与计算。
+- **`run_skill` 系统**：在施放技能时，通过 `SkillInstance.skill` 在 `Assets<SkillDefinition>` 中查询 `SkillDefinition`，再通过 `get_feature` 获取具体数值参与计算。
 - **敌人模块**（`enemy`）：敌人生成时可通过 `Assets<SkillDefinition>` 资源查找技能模板，再创建对应的 [`SkillInstance`] 附加到实体上。
 - **加载管线**：`SkillDefinition` 作为 `Asset` 可通过 `AssetServer` 从文件加载，由 `AssetLoader` 解析并存入 `Assets<SkillDefinition>` 资源中。
 
@@ -96,10 +96,10 @@ fn system(skills: Res<Assets<SkillDefinition>>) {
 1. 设计阶段定义 SkillDefinition 资产文件（JSON/CSV），包含 id, name, features。
 2. 游戏启动时通过 AssetServer 加载 SkillDefinition 资产。
 3. 实体生成时，从 Assets<SkillDefinition> 获取技能模板，创建 SkillInstance 作为运行时状态。
-4. 战斗中通过 SkillInstance.skill_id 在 Assets<SkillDefinition> 中查找 SkillDefinition。
+4. 战斗中通过 SkillInstance.skill 句柄在 Assets<SkillDefinition> 中查找 SkillDefinition。
 5. 通过 get_feature 获取数值参数，参与伤害计算和效果判定。
 ```
 
 [`SkillInstance`]: ./SkillInstance.md
-[`SkillInstance.skill_id`]: ./SkillInstance.md#字段说明
+[`SkillInstance.skill`]: ./SkillInstance.md#字段说明
 [`SkillFeatureDefinition`]: ./SkillFeatureDefinition.md
