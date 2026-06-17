@@ -1,6 +1,7 @@
 //! The screen state for the main gameplay.
 
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
+use bevy::ecs::schedule::SystemCondition;
 
 use crate::{Pause, level::spawn_level, menus::Menu, screens::Screen};
 
@@ -28,6 +29,12 @@ pub(super) fn plugin(app: &mut App) {
         OnEnter(Menu::None),
         unpause.run_if(in_state(Screen::Gameplay)),
     );
+}
+
+/// Run condition that returns true when the game is in the [`Screen::Gameplay`]
+/// state and not paused ([`Pause(false)`]).
+pub fn in_gameplay_and_unpaused() -> impl SystemCondition<()> {
+    in_state(Screen::Gameplay).and(in_state(Pause(false)))
 }
 
 fn unpause(mut next_pause: ResMut<NextState<Pause>>) {

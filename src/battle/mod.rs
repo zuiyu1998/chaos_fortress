@@ -6,6 +6,9 @@
 
 use bevy::prelude::*;
 use crate::attribute::{Attribute, AttributeSet};
+use crate::screens::in_gameplay_and_unpaused;
+use crate::skill::cooldown::{reset_cooldown_timer, tick_cooldown_timer};
+use crate::skill::emit_skill_event;
 
 
 /// Plugin that registers battle-related components, messages, and systems.
@@ -22,6 +25,11 @@ impl Plugin for BattlePlugin {
         app.add_message::<DeathInBattle>();
 
         app.add_systems(Update, despawn_on_death);
+        app.add_systems(
+            Update,
+            (tick_cooldown_timer, reset_cooldown_timer, emit_skill_event)
+                .run_if(in_gameplay_and_unpaused()),
+        );
     }
 }
 

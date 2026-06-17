@@ -204,17 +204,38 @@ pub struct SkillTarget(pub Entity);
 /// (either succeeded or failed).
 #[derive(Message, Clone, TypePath)]
 pub struct SkillEvent {
+    /// The skill entity that completed execution.
+    pub skill: Entity,
     /// The entity that owns this skill.
     pub owner: Entity,
     /// Record of feature execution outcomes, keyed by feature id.
     pub feature_results: HashMap<String, SkillFeatureResult>,
 }
 
-impl From<SkillRunContext> for SkillEvent {
-    fn from(ctx: SkillRunContext) -> Self {
+impl From<(Entity, SkillRunContext)> for SkillEvent {
+    fn from((skill, ctx): (Entity, SkillRunContext)) -> Self {
         Self {
+            skill,
             owner: ctx.owner,
             feature_results: ctx.feature_results,
+        }
+    }
+}
+
+/// Emits a [`SkillEvent`] when all feature results in a [`SkillRunContext`]
+/// have completed successfully (all entries are `Ok`).
+pub fn emit_skill_event(
+    mut query: Query<(Entity, &mut SkillRunContext)>,
+    mut messages: MessageWriter<SkillEvent>,
+) {
+    for (entity, mut ctx) in query.iter_mut() {
+        if ctx.feature_results.values().all(|r| matches!(r, SkillFeatureResult::Ok(_))) {
+            messages.write(SkillEvent {
+                skill: entity,
+                owner: ctx.owner,
+                feature_results: ctx.feature_results.clone(),
+            });
+            ctx.feature_results.values_mut().for_each(|r| *r = SkillFeatureResult::Ready);
         }
     }
 }

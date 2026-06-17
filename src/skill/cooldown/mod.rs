@@ -2,14 +2,19 @@
 //!
 //! Defines [`CooldownFeature`] and [`CooldownFeatureBuilder`] for
 //! representing and building cooldown effects on skill entities.
+//!
+//! Also provides [`tick_cooldown_timer`] — a system that advances the
+//! [`CoolingTimer`] each frame and updates the [`SkillRunContext`] when
+//! the cooldown expires.
 
 use bevy::prelude::*;
 
 use crate::common::CoolingTimer;
 
 use super::{
-    BuildError, FromSkillFeatureDefinition, IntoSkillFeatureDefinition, SkillFeatureBuilder,
-    SkillFeatureBuilderContext, SkillFeatureDefinition,
+    BuildError, FromSkillFeatureDefinition, IntoSkillFeatureDefinition, SkillEvent,
+    SkillFeatureBuilder, SkillFeatureBuilderContext, SkillFeatureDefinition,
+    SkillFeatureResult, SkillFeatureResultData, SkillRunContext,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,5 +93,67 @@ impl SkillFeatureBuilder for CooldownFeatureBuilder {
             .set_parent_in_place(ctx.target);
 
         Ok(ctx.skill)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CooldownResult
+// ---------------------------------------------------------------------------
+
+/// Data stored in [`SkillFeatureResult::Ok`] when a cooldown completes.
+#[derive(Debug)]
+pub struct CooldownResult {
+    /// The cooldown duration in seconds.
+    pub duration: f32,
+}
+
+impl SkillFeatureResultData for CooldownResult {
+    fn clone_box(&self) -> Box<dyn SkillFeatureResultData> {
+        Box::new(Self {
+            duration: self.duration,
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Systems
+// ---------------------------------------------------------------------------
+
+/// Advances the [`CoolingTimer`] on skill entities each frame and updates
+/// the [`SkillRunContext`] when the cooldown expires.
+///
+/// When the timer finishes, the `"cooldown"` entry in
+/// [`SkillRunContext::feature_results`] is set to
+/// [`SkillFeatureResult::Ok`] carrying a [`CooldownResult`].
+pub fn tick_cooldown_timer(
+    time: Res<Time>,
+    mut query: Query<(&CooldownFeature, &mut CoolingTimer, &mut SkillRunContext)>,
+) {
+    for (feature, mut timer, mut ctx) in query.iter_mut() {
+        // Tick the timer forward.
+        timer.0.tick(time.delta());
+
+        // If the timer just finished this frame, mark the cooldown as complete.
+        if timer.0.just_finished() {
+            ctx.record_feature_result(
+                "cooldown",
+                SkillFeatureResult::Ok(Box::new(CooldownResult {
+                    duration: feature.cooldown_duration,
+                })),
+            );
+        }
+    }
+}
+
+/// Resets the [`CoolingTimer`] on a skill entity when its [`SkillEvent`]
+/// is received (all features completed), so the cooldown begins anew.
+pub fn reset_cooldown_timer(
+    mut events: MessageReader<SkillEvent>,
+    mut query: Query<&mut CoolingTimer>,
+) {
+    for event in events.read() {
+        if let Ok(mut timer) = query.get_mut(event.skill) {
+            timer.0.reset();
+        }
     }
 }

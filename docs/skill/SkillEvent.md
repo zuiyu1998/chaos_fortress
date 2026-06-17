@@ -21,15 +21,18 @@ use crate::skill::SkillFeatureResult;
 /// 技能执行完成时广播的消息，包含执行结果数据。
 #[derive(Message, Clone, TypePath)]
 pub struct SkillEvent {
+    /// 执行完毕的技能实体。
+    pub skill: Entity,
     /// 技能所属的实体（技能持有者）。
     pub owner: Entity,
     /// SkillFeature 执行结果记录，键为特征 id，值为 [`SkillFeatureResult`] 枚举。
     pub feature_results: HashMap<String, SkillFeatureResult>,
 }
 
-impl From<SkillRunContext> for SkillEvent {
-    fn from(ctx: SkillRunContext) -> Self {
+impl From<(Entity, SkillRunContext)> for SkillEvent {
+    fn from((skill, ctx): (Entity, SkillRunContext)) -> Self {
         Self {
+            skill,
             owner: ctx.owner,
             feature_results: ctx.feature_results,
         }
@@ -41,6 +44,7 @@ impl From<SkillRunContext> for SkillEvent {
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
+| `skill` | `Entity` | 执行完毕的技能实体。 |
 | `owner` | `Entity` | 技能所属的实体（技能持有者），即拥有该技能的实体。 |
 | `feature_results` | `HashMap<String, SkillFeatureResult>` | SkillFeature 执行结果记录，键为特征 `id`，值为 [`SkillFeatureResult`] 枚举。 |
 
@@ -50,16 +54,16 @@ impl From<SkillRunContext> for SkillEvent {
 
 ```rust
 fn emit_skill_event(
-    mut ctx_query: Query<&mut SkillRunContext>,
+    mut ctx_query: Query<(&mut SkillRunContext, Entity)>,
     mut messages: MessageWriter<SkillEvent>,
 ) {
-    for ctx in ctx_query.iter() {
+    for (ctx, skill_entity) in ctx_query.iter() {
         // 检查所有 feature 是否均已执行完毕
         let all_done = ctx.feature_results.values().all(|r| {
             matches!(r, SkillFeatureResult::Ok(_) | SkillFeatureResult::Error(_))
         });
         if all_done {
-            messages.send(SkillEvent::from(ctx));
+            messages.send(SkillEvent::from((skill_entity, ctx)));
         }
     }
 }
@@ -88,7 +92,7 @@ fn on_skill_completed(mut messages: MessageReader<SkillEvent>) {
 
 ## 与现有模块的关系
 
-- **[`SkillRunContext`]**：`SkillEvent` 的内容与 `SkillRunContext` 相同（`owner` + `feature_results`），可通过 `From<SkillRunContext>` 转换得到。`SkillRunContext` 是组件，附着在实体上；`SkillEvent` 是消息，跨系统广播。
+- **[`SkillRunContext`]**：`SkillEvent` 与 `SkillRunContext` 共享 `owner` + `feature_results` 字段，并额外包含 `skill` 字段记录技能实体。可通过 `From<(Entity, SkillRunContext)>` 转换得到。`SkillRunContext` 是组件，附着在实体上；`SkillEvent` 是消息，跨系统广播。
 - **[`SkillFeatureResult`]**：`feature_results` 字典的值类型，记录了每个特征的执行状态与数据。
 - **[`SkillPlugin`]**：`SkillEvent` 需在 [`SkillPlugin`] 中通过 `app.add_message::<SkillEvent>()` 注册。
 - **[`DeathInBattle`]** 与 **[`BulletBattleEvent`]**：遵循相同的消息设计模式。
