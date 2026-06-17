@@ -16,7 +16,7 @@ use crate::common::{
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
-use crate::skill::skill;
+use crate::skill::{skill, CooldownFeature, SkillRunContext, SkillTarget};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -171,6 +171,7 @@ impl RoleBuilder for ArcherRoleBuilder {
         entity.insert(battle(ctx.attributes));
 
         let mut bullet_position_entity = Entity::PLACEHOLDER;
+        let mut skill_entity = Entity::PLACEHOLDER;
         entity.with_children(|parent| {
             parent.spawn((
                 attack_range(attack_range_val, GamePhysicsLayer::detect_enemy_layers()),
@@ -183,9 +184,10 @@ impl RoleBuilder for ArcherRoleBuilder {
                     Transform::default(),
                 ))
                 .id();
-            skill(parent, ctx.skill_container, ctx.archer_skill);
+            skill_entity = skill(parent, ctx.skill_container, ctx.archer_skill);
         });
         entity.insert(BulletPositionTarget(bullet_position_entity));
+        entity.insert(SkillTarget(skill_entity));
 
         if let Some(parent) = ctx.parent {
             entity.set_parent_in_place(parent);
@@ -200,16 +202,17 @@ impl RoleBuilder for ArcherRoleBuilder {
 /// System that drives archers to fire bullets automatically.
 ///
 /// Only runs for archers currently in `Combat` state (detected via
-/// `StateComponent<ArcherCombat>` + `Active`). When the cooldown timer
-/// has just finished, it resets the cooldown, reads the [`BulletPosition`]
-/// child entity's world position, and spawns a bullet flying toward the
-/// current [`EnemyTarget`].
+/// `StateComponent<ArcherCombat>` + `Active`). Checks the skill entity's
+/// [`SkillRunContext`] feature results: fires a bullet when results are
+/// empty (first run) or all successful; skips if any feature is still
+/// pending or failed. After firing, clears the feature results and resets
+/// the cooldown timer.
 pub fn run_skill(
     mut commands: Commands,
     combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, With<Active>)>,
-    mut archers: Query<
+    archers: Query<
         (
-            &mut CoolingTimer,
+            &SkillTarget,
             &BulletPositionTarget,
             &GlobalTransform,
             &EnemyTarget,
@@ -217,28 +220,43 @@ pub fn run_skill(
         ),
         With<Archer>,
     >,
+    mut skill_query: Query<(&mut SkillRunContext, &mut CoolingTimer, &CooldownFeature)>,
     bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
     enemy_transform_query: Query<&GlobalTransform>,
 ) {
     for active in &combat_states {
-        if let Ok((mut timer, target, _archer_transform, enemy_target, damage)) =
-            archers.get_mut(active.machine)
+        if let Ok((skill_target, target, _archer_transform, enemy_target, damage)) =
+            archers.get(active.machine)
         {
-            if timer.0.just_finished() {
-                timer.0.reset();
+            // Check feature results on the skill entity.
+            let can_fire = match skill_query.get(skill_target.0) {
+                Ok((ctx, _, _)) if ctx.feature_results.is_empty() => true,
+                Ok((ctx, _, _)) => ctx.feature_results.values().all(|r| r.is_ok()),
+                Err(_) => false,
+            };
+            if !can_fire {
+                continue;
+            }
 
-                if let Some(enemy) = enemy_target.0 {
-                    if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
-                        if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
-                            let position = bullet_transform.translation().truncate();
-                            let direction = (enemy_transform.translation().truncate() - position)
-                                .normalize_or_zero();
-                            commands.spawn(bullet(
-                                position,
-                                direction * 200.0,
-                                GamePhysicsLayer::detect_enemy_layers(),
-                                damage.0,
-                            ));
+            if let Some(enemy) = enemy_target.0 {
+                if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
+                    if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
+                        let position = bullet_transform.translation().truncate();
+                        let direction = (enemy_transform.translation().truncate() - position)
+                            .normalize_or_zero();
+                        commands.spawn(bullet(
+                            position,
+                            direction * 200.0,
+                            GamePhysicsLayer::detect_enemy_layers(),
+                            damage.0,
+                        ));
+
+                        // Clear feature results and reset cooldown timer.
+                        if let Ok((mut ctx, mut timer, _feature)) =
+                            skill_query.get_mut(skill_target.0)
+                        {
+                            ctx.feature_results.clear();
+                            timer.0.reset();
                         }
                     }
                 }

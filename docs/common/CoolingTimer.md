@@ -23,18 +23,6 @@ pub struct CoolingTimer(pub Timer);
 |------|------|------|
 | `0` | `Timer` | Bevy 内置计时器，支持 `TimerMode::Once`（单次）和 `TimerMode::Repeating`（循环）。冷却场景推荐使用 `TimerMode::Once`。 |
 
-## 辅助函数
-
-`CoolingTimer::tick_all` 是一个系统函数，用于每帧推进所有携带 `CoolingTimer` 组件的倒计时：
-
-```rust
-pub fn tick_all(time: Res<Time>, mut query: Query<&mut CoolingTimer>) {
-    for mut timer in &mut query {
-        timer.0.tick(time.delta());
-    }
-}
-```
-
 ## 与现有模块的关系
 
 - **弓箭手模块**：`ArcherRoleBuilder` 在构建实体时附加 `AttackSpeed` 属性组件（攻击间隔），战斗系统据此创建 `Timer::from_seconds(speed, TimerMode::Once)` 并存入 `CoolingTimer`。

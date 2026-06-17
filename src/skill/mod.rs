@@ -15,8 +15,11 @@
 //! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
 //! - **[`SkillFeatureBuilderContainer`]** — A [`Resource`] that maps feature ids to builders.
 //! - **[`CooldownFeatureBuilder`]** — A [`SkillFeatureBuilder`] that attaches a [`CoolingTimer`] to the skill entity.
+//! - **[`SkillFeatureResult`]** — A trait for checking feature execution status.
+//! - **[`SkillTarget`]** — A [`Component`] referencing the skill entity, attached on the owner.
 //! - **[`SkillPlugin`]** — Registers the asset type, component, and container with Bevy.
 
+use bevy::ecs::relationship::Relationship;
 use bevy::prelude::*;
 use std::collections::HashMap;
 
@@ -39,8 +42,12 @@ impl Plugin for SkillPlugin {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
         app.register_type::<CooldownFeature>();
+        app.register_type::<SkillRunContext>();
+        app.register_type::<SkillTarget>();
         app.init_resource::<SkillFeatureBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
+
+        app.add_systems(Update, tick_cooldown_features);
     }
 }
 
@@ -71,6 +78,7 @@ pub fn skill(
         .spawn((
             Name::new(format!("Skill ({})", definition.name)),
             SkillInstance::new(&definition.id),
+            SkillRunContext::new(target),
         ))
         .id();
 
@@ -327,6 +335,80 @@ impl SkillFeatureBuilder for CooldownFeatureBuilder {
 }
 
 // ---------------------------------------------------------------------------
+// SkillFeatureResult & SkillRunContext
+// ---------------------------------------------------------------------------
+
+/// Reference to a skill entity, attached on the owner entity for easy access.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct SkillTarget(pub Entity);
+
+/// Trait for checking whether a skill feature execution succeeded.
+pub trait SkillFeatureResult: std::fmt::Debug + Send + Sync {
+    /// Returns `true` if the execution was successful.
+    fn is_ok(&self) -> bool;
+}
+
+/// Component that records the runtime context of a skill execution,
+/// including the owning entity and the outcomes of each feature.
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
+pub struct SkillRunContext {
+    /// The entity that owns this skill.
+    pub owner: Entity,
+    /// Record of feature execution outcomes, keyed by feature id.
+    /// Each value is a boxed trait object implementing [`SkillFeatureResult`].
+    #[reflect(ignore)]
+    pub feature_results: HashMap<String, Box<dyn SkillFeatureResult>>,
+}
+
+impl SkillRunContext {
+    /// Create a new [`SkillRunContext`].
+    pub fn new(owner: Entity) -> Self {
+        Self {
+            owner,
+            feature_results: HashMap::new(),
+        }
+    }
+
+    /// Record the result of a single feature execution.
+    pub fn record_feature_result(
+        &mut self,
+        feature_id: impl Into<String>,
+        result: impl SkillFeatureResult + 'static,
+    ) {
+        self.feature_results.insert(feature_id.into(), Box::new(result));
+    }
+}
+
+/// Marker result indicating that a cooldown feature has completed.
+#[derive(Debug)]
+pub struct CooldownCompleted;
+
+impl SkillFeatureResult for CooldownCompleted {
+    fn is_ok(&self) -> bool {
+        true
+    }
+}
+
+/// System that ticks [`CoolingTimer`] on skill entities and, when the timer
+/// finishes, records a [`CooldownCompleted`] result in the parent entity's
+/// [`SkillRunContext`].
+pub fn tick_cooldown_features(
+    time: Res<Time>,
+    mut skill_query: Query<(&mut CoolingTimer, &ChildOf), With<CooldownFeature>>,
+    mut parent_query: Query<&mut SkillRunContext>,
+) {
+    for (mut timer, child_of) in &mut skill_query {
+        timer.0.tick(time.delta());
+        if timer.0.just_finished() {
+            if let Ok(mut ctx) = parent_query.get_mut(child_of.get()) {
+                ctx.record_feature_result("cooldown", CooldownCompleted);
+            }
+        }
+    }
+}
+
 // Traits
 // ---------------------------------------------------------------------------
 

@@ -202,7 +202,7 @@ commands.spawn((
 ```
 Archer 实体
     ├── Archer               — 标记为弓箭手
-    ├── CoolingTimer         — 冷却计时（由 tick_all 推进）
+    ├── CoolingTimer         — 冷却计时
     ├── BulletPositionTarget — 指向 BulletPosition 子实体的引用
     └── Children
         └── BulletPosition   — 提供子弹生成的世界坐标

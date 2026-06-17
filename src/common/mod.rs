@@ -129,15 +129,6 @@ pub struct EnemyTargetList(pub Vec<Entity>);
 #[reflect(Component)]
 pub struct CoolingTimer(pub Timer);
 
-/// Tick all [`CoolingTimer`] components each frame.
-///
-/// Advances every entity's cooldown timer by [`Time::delta`].
-pub fn tick_all(time: Res<Time>, mut query: Query<&mut CoolingTimer>) {
-    for mut timer in &mut query {
-        timer.0.tick(time.delta());
-    }
-}
-
 /// Spawn an attack-range sensor.
 ///
 /// Returns a bundle containing an [`AttackRange`] component, a

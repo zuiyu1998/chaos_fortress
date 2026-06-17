@@ -8,6 +8,7 @@
 - 向 Bevy 应用注册 [`SkillInstance`] 组件到类型反射系统（Type Registry）。
 - 初始化 [`SkillFeatureBuilderContainer`] 资源，用于管理和查找技能特征构建器。创建容器时 `"cooldown"` 特征的 [`CooldownFeatureBuilder`] 已默认注册。
 - 注册 [`SkillDefinitionLoader`] 资产加载器，支持从 `.skill.toml` 文件加载技能定义。
+- 添加 [`tick_cooldown_features`] 系统，每帧推进冷却计时器，倒计时完成时在父实体 [`SkillRunContext`] 中记录结果。
 
 ## 定义
 
@@ -19,8 +20,12 @@ impl Plugin for SkillPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
+        app.register_type::<CooldownFeature>();
+        app.register_type::<SkillRunContext>();
         app.init_resource::<SkillFeatureBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
+
+        app.add_systems(Update, tick_cooldown_features);
     }
 }
 ```
@@ -37,6 +42,7 @@ impl Plugin for SkillPlugin {
 |------|------|
 | [`SkillInstance`] | 存储技能在实体上的运行时状态（充能层数、状态）。通过 `register_type` 注册到类型反射系统。 |
 | [`CooldownFeature`] | 冷却特征组件，记录冷却时长。通过 `register_type` 注册到类型反射系统。 |
+| [`SkillRunContext`] | 技能运行上下文，记录 SkillFeature 执行结果。通过 `register_type` 注册到类型反射系统。 |
 
 ## 注册的资源
 
@@ -49,6 +55,12 @@ impl Plugin for SkillPlugin {
 | 加载器 | 文件扩展名 | 说明 |
 |--------|-----------|------|
 | [`SkillDefinitionLoader`] | `.skill.toml` | 将 TOML 文件解析为 [`SkillDefinition`] 资产。通过 `register_asset_loader` 注册。 |
+
+## 注册的系统
+
+| 系统 | 阶段 | 说明 |
+|------|------|------|
+| `tick_cooldown_features` | `Update` | 每帧推进技能实体上的 [`CoolingTimer`]，当冷却完成时在父实体的 [`SkillRunContext`] 中记录 `CooldownCompleted` 结果。 |
 
 ## 工厂函数
 
@@ -83,4 +95,6 @@ pub fn skill(
 [`CooldownFeature`]: ./CooldownFeature.md
 [`CooldownFeatureBuilder`]: ./CooldownFeatureBuilder.md
 [`SkillDefinitionLoader`]: ./SkillDefinitionLoader.md
+[`SkillRunContext`]: ./SkillRunContext.md
+[`CoolingTimer`]: ../common/CoolingTimer.md
 [`AttributePlugin`]: ../attribute/AttributePlugin.md
