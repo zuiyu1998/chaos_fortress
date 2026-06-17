@@ -14,7 +14,8 @@
 //! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
 //! - **[`SkillFeatureBuilderContainer`]** — A [`Resource`] that maps feature ids to builders.
 //! - **[`CooldownFeatureBuilder`]** — A [`SkillFeatureBuilder`] that attaches a [`CoolingTimer`] to the skill entity.
-//! - **[`SkillFeatureResult`]** — A trait for checking feature execution status.
+//! - **[`SkillFeatureResult`]** — An enum for checking feature execution status (Ready, Ok, Error).
+//! - **[`SkillEvent`]** — A message broadcast when a skill completes execution.
 //! - **[`SkillTarget`]** — A [`Component`] referencing the skill entity, attached on the owner.
 //! - **[`SkillPlugin`]** — Registers the asset type, component, and container with Bevy.
 
@@ -43,6 +44,7 @@ impl Plugin for SkillPlugin {
         app.register_type::<CooldownFeature>();
         app.register_type::<SkillRunContext>();
         app.register_type::<SkillTarget>();
+        app.add_message::<SkillEvent>();
         app.init_resource::<SkillFeatureBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
     }
@@ -78,7 +80,7 @@ pub fn skill(
             SkillInstance {
                 skill: skill_handle,
             },
-            SkillRunContext::new(target),
+            SkillRunContext::new(target, definition),
         ))
         .id();
 
@@ -190,17 +192,56 @@ pub struct SkillInstance {
 // SkillFeatureResult & SkillRunContext
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-
 /// Reference to a skill entity, attached on the owner entity for easy access.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
 #[reflect(Component)]
 pub struct SkillTarget(pub Entity);
 
-/// Trait for checking whether a skill feature execution succeeded.
-pub trait SkillFeatureResult: std::fmt::Debug + Send + Sync {
-    /// Returns `true` if the execution was successful.
-    fn is_ok(&self) -> bool;
+/// Message broadcast when a skill completes execution, carrying the
+/// results of all skill features.
+///
+/// Derived from [`SkillRunContext`] when all features have finished
+/// (either succeeded or failed).
+#[derive(Message, Clone, TypePath)]
+pub struct SkillEvent {
+    /// The entity that owns this skill.
+    pub owner: Entity,
+    /// Record of feature execution outcomes, keyed by feature id.
+    pub feature_results: HashMap<String, SkillFeatureResult>,
+}
+
+impl From<SkillRunContext> for SkillEvent {
+    fn from(ctx: SkillRunContext) -> Self {
+        Self {
+            owner: ctx.owner,
+            feature_results: ctx.feature_results,
+        }
+    }
+}
+
+/// Enum representing the execution result of a skill feature.
+///
+/// - [`Ready`](SkillFeatureResult::Ready) — Still in progress, not yet completed.
+/// - [`Ok`](SkillFeatureResult::Ok) — Completed successfully, carries structured data.
+/// - [`Error`](SkillFeatureResult::Error) — Completed with failure, carries an error message.
+#[derive(Debug)]
+pub enum SkillFeatureResult {
+    /// Feature execution is still in progress.
+    Ready,
+    /// Feature executed successfully, carries structured data.
+    Ok(Box<dyn SkillFeatureResultData>),
+    /// Feature execution failed.
+    Error(String),
+}
+
+impl Clone for SkillFeatureResult {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Ready => Self::Ready,
+            Self::Ok(data) => Self::Ok(data.clone_box()),
+            Self::Error(msg) => Self::Error(msg.clone()),
+        }
+    }
 }
 
 /// Component that records the runtime context of a skill execution,
@@ -211,17 +252,22 @@ pub struct SkillRunContext {
     /// The entity that owns this skill.
     pub owner: Entity,
     /// Record of feature execution outcomes, keyed by feature id.
-    /// Each value is a boxed trait object implementing [`SkillFeatureResult`].
+    /// Each value is a [`SkillFeatureResult`] enum.
     #[reflect(ignore)]
-    pub feature_results: HashMap<String, Box<dyn SkillFeatureResult>>,
+    pub feature_results: HashMap<String, SkillFeatureResult>,
 }
 
 impl SkillRunContext {
-    /// Create a new [`SkillRunContext`].
-    pub fn new(owner: Entity) -> Self {
+    /// Create a new [`SkillRunContext`] with default [`SkillFeatureResult::Ready`]
+    /// for each feature defined in the given skill definition.
+    pub fn new(owner: Entity, definition: &SkillDefinition) -> Self {
         Self {
             owner,
-            feature_results: HashMap::new(),
+            feature_results: definition
+                .features
+                .iter()
+                .map(|f| (f.id.clone(), SkillFeatureResult::Ready))
+                .collect(),
         }
     }
 
@@ -229,15 +275,25 @@ impl SkillRunContext {
     pub fn record_feature_result(
         &mut self,
         feature_id: impl Into<String>,
-        result: impl SkillFeatureResult + 'static,
+        result: SkillFeatureResult,
     ) {
-        self.feature_results.insert(feature_id.into(), Box::new(result));
+        self.feature_results.insert(feature_id.into(), result);
     }
 }
 
 // ---------------------------------------------------------------------------
 // Traits
 // ---------------------------------------------------------------------------
+
+/// Marker trait for structured data stored in [`SkillFeatureResult::Ok`].
+///
+/// Each [`SkillFeature`](crate::skill::SkillFeature) can implement this trait
+/// on its own result data type, allowing the success variant to carry
+/// arbitrary structured information instead of a plain string.
+pub trait SkillFeatureResultData: std::fmt::Debug + Send + Sync {
+    /// Clone self into a boxed trait object.
+    fn clone_box(&self) -> Box<dyn SkillFeatureResultData>;
+}
 
 /// Build `Self` from a [`SkillFeatureDefinition`]'s numeric dictionary.
 ///

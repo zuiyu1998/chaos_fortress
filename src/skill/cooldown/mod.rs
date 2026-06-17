@@ -9,7 +9,7 @@ use crate::common::CoolingTimer;
 
 use super::{
     BuildError, FromSkillFeatureDefinition, IntoSkillFeatureDefinition, SkillFeatureBuilder,
-    SkillFeatureBuilderContext, SkillFeatureDefinition, SkillFeatureResult,
+    SkillFeatureBuilderContext, SkillFeatureDefinition,
 };
 
 // ---------------------------------------------------------------------------
@@ -88,19 +88,5 @@ impl SkillFeatureBuilder for CooldownFeatureBuilder {
             .set_parent_in_place(ctx.target);
 
         Ok(ctx.skill)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// CooldownCompleted
-// ---------------------------------------------------------------------------
-
-/// Marker result indicating that a cooldown feature has completed.
-#[derive(Debug)]
-pub struct CooldownCompleted;
-
-impl SkillFeatureResult for CooldownCompleted {
-    fn is_ok(&self) -> bool {
-        true
     }
 }

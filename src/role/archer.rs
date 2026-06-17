@@ -16,7 +16,7 @@ use crate::common::{
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
-use crate::skill::{skill, CooldownFeature, SkillRunContext, SkillTarget};
+use crate::skill::{skill, CooldownFeature, SkillFeatureResult, SkillRunContext, SkillTarget};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -231,7 +231,9 @@ pub fn run_skill(
             // Check feature results on the skill entity.
             let can_fire = match skill_query.get(skill_target.0) {
                 Ok((ctx, _, _)) if ctx.feature_results.is_empty() => true,
-                Ok((ctx, _, _)) => ctx.feature_results.values().all(|r| r.is_ok()),
+                Ok((ctx, _, _)) => {
+                    ctx.feature_results.values().all(|r| matches!(r, SkillFeatureResult::Ok(_)))
+                }
                 Err(_) => false,
             };
             if !can_fire {
