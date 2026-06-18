@@ -9,13 +9,28 @@
 
 use bevy::prelude::*;
 
-use crate::common::CoolingTimer;
-
 use super::{
     BuildError, FromSkillFeatureDefinition, IntoSkillFeatureDefinition, SkillEvent,
     SkillFeatureBuilder, SkillFeatureBuilderContext, SkillFeatureDefinition,
     SkillFeatureResult, SkillFeatureResultData, SkillRunContext,
 };
+
+/// Cooldown timer.
+///
+/// Stores a Bevy [`Timer`] that counts down cooldown duration
+/// (e.g. between attacks). Use [`TimerMode::Once`] for single-shot
+/// cooldowns.
+///
+/// When `enabled` is `false` the timer does not advance.
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct CoolingTimer {
+    /// The underlying Bevy timer.
+    pub timer: Timer,
+    /// Whether the timer is actively counting down.
+    /// Only when `true` does [`tick_cooldown_timer`] advance the timer.
+    pub enabled: bool,
+}
 
 // ---------------------------------------------------------------------------
 // CooldownFeature
@@ -72,7 +87,7 @@ impl IntoSkillFeatureDefinition for CooldownFeature {
 /// parent to the target entity.
 ///
 /// Reads `cooldown_duration` from the feature's numeric dictionary (default 1.0 s)
-/// and inserts `CoolingTimer(Timer::from_seconds(cooldown_duration, TimerMode::Once))`
+/// and inserts `CoolingTimer { timer: Timer::from_seconds(...), enabled: true }`
 /// on `ctx.skill`, then parents the skill entity to `ctx.target`.
 pub struct CooldownFeatureBuilder;
 
@@ -88,7 +103,10 @@ impl SkillFeatureBuilder for CooldownFeatureBuilder {
             .entity(ctx.skill)
             .insert((
                 CooldownFeature { cooldown_duration },
-                CoolingTimer(Timer::from_seconds(cooldown_duration, TimerMode::Once)),
+                CoolingTimer {
+                    timer: Timer::from_seconds(cooldown_duration, TimerMode::Once),
+                    enabled: true,
+                },
             ))
             .set_parent_in_place(ctx.target);
 
@@ -124,23 +142,31 @@ impl SkillFeatureResultData for CooldownResult {
 ///
 /// When the timer finishes, the `"cooldown"` entry in
 /// [`SkillRunContext::feature_results`] is set to
-/// [`SkillFeatureResult::Ok`] carrying a [`CooldownResult`].
+/// [`SkillFeatureResult::Ok`] carrying a [`CooldownResult`], and
+/// [`CoolingTimer::enabled`] is set to `false` to stop further ticking
+/// until [`reset_cooldown_timer`] re-enables it.
 pub fn tick_cooldown_timer(
     time: Res<Time>,
     mut query: Query<(&CooldownFeature, &mut CoolingTimer, &mut SkillRunContext)>,
 ) {
     for (feature, mut timer, mut ctx) in query.iter_mut() {
-        // Tick the timer forward.
-        timer.0.tick(time.delta());
+        if !timer.enabled {
+            continue;
+        }
 
-        // If the timer just finished this frame, mark the cooldown as complete.
-        if timer.0.just_finished() {
+        // Tick the timer forward.
+        timer.timer.tick(time.delta());
+
+        // If the timer just finished this frame, mark the cooldown as complete
+        // and disable further ticking until the timer is explicitly reset.
+        if timer.timer.just_finished() {
             ctx.record_feature_result(
                 "cooldown",
                 SkillFeatureResult::Ok(Box::new(CooldownResult {
                     duration: feature.cooldown_duration,
                 })),
             );
+            timer.enabled = false;
         }
     }
 }
@@ -153,7 +179,8 @@ pub fn reset_cooldown_timer(
 ) {
     for event in events.read() {
         if let Ok(mut timer) = query.get_mut(event.skill) {
-            timer.0.reset();
+            timer.timer.reset();
+            timer.enabled = true;
         }
     }
 }

@@ -87,5 +87,5 @@ pub fn skill(
 [`CooldownFeatureBuilder`]: ./CooldownFeatureBuilder.md
 [`SkillDefinitionLoader`]: ./SkillDefinitionLoader.md
 [`SkillRunContext`]: ./SkillRunContext.md
-[`CoolingTimer`]: ../common/CoolingTimer.md
+[`CoolingTimer`]: ./cooldown/CoolingTimer.md
 [`AttributePlugin`]: ../attribute/AttributePlugin.md

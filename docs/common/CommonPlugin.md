@@ -50,6 +50,6 @@ app.add_plugins((
 | [`VisualDisplayLayer`](VisualDisplayLayer.md) | 视觉渲染层级定义与 z 值对照 |
 | [`GamePhysicsLayer`](GamePhysicsLayer.md) | 物理碰撞层级配置与辅助函数 |
 | [`AttackRange`](AttackRange.md) | 攻击范围组件及传感器生成函数 |
-| [`CoolingTimer`](CoolingTimer.md) | 冷却计时器组件 |
+| [`CoolingTimer`](../skill/cooldown/CoolingTimer.md) | 冷却计时器组件 |
 | [`EnemyTarget`](EnemyTarget.md) | 当前锁定目标组件 |
 | [`EnemyTargetList`](EnemyTargetList.md) | 攻击范围目标列表组件 |

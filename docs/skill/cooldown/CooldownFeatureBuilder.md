@@ -95,5 +95,5 @@ fn setup_cooldown_builder(mut container: ResMut<SkillFeatureBuilderContainer>) {
 [`SkillFeatureBuilderContext`]: ./SkillFeatureBuilder.md#相关类型
 [`SkillFeatureBuilderContainer`]: ./SkillFeatureBuilderContainer.md
 [`CooldownFeature`]: ./CooldownFeature.md
-[`CoolingTimer`]: ../common/CoolingTimer.md
+[`CoolingTimer`]: ./CoolingTimer.md
 [`SkillRunContext`]: ./SkillRunContext.md

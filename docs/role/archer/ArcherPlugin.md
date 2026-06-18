@@ -14,7 +14,6 @@ impl Plugin for ArcherPlugin {
         app.register_type::<Archer>();
         app.register_type::<AttackSpeed>();
         app.register_type::<ProjectileDamage>();
-        app.register_type::<CoolingTimer>();
         app.register_type::<ArcherIdle>();
 
         app.register_transition::<Idle2Combat>();
@@ -32,10 +31,7 @@ impl Plugin for ArcherPlugin {
 
         app.add_systems(
             Update,
-            (
-                run_skill,
-                detect_target_when_idle,
-            )
+            detect_target_when_idle
                 .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
@@ -50,66 +46,9 @@ impl Plugin for ArcherPlugin {
 | `ArcherIdle` | Component | 标记弓箭手处于 Idle 状态，由 gearbox 的 `StateComponent` 自动管理 |
 | `AttackSpeed` | Component | 弓箭手的攻击间隔（秒） |
 | `ProjectileDamage` | Component | 弓箭手投射物伤害值 |
-| `CoolingTimer` | Component | 冷却计时器（Bevy `Timer`），用于控制攻击频率 |
 | `Idle2Combat` | Message | Gearbox 消息，触发 Idle → Combat 状态转换 |
 
 ## 系统
-
-### run_skill
-
-`run_skill` 是一个系统函数，用于驱动弓箭手自动发射子弹。它仅对当前处于 **Combat** 状态的弓箭手生效（通过 `StateComponent<ArcherCombat>` + `Active` 检测），当实体的 `CoolingTimer` 冷却完毕时，朝当前 [`EnemyTarget`](../../common/EnemyTarget.md) 的方向生成一颗子弹。
-
-```rust
-pub fn run_skill(
-    mut commands: Commands,
-    combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, With<Active>)>,
-    mut archers: Query<(&mut CoolingTimer, &BulletPositionTarget, &GlobalTransform, &EnemyTarget), With<Archer>>,
-    bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
-    enemy_transform_query: Query<&GlobalTransform>,
-) {
-    for active in &combat_states {
-        if let Ok((mut timer, target, _archer_transform, enemy_target)) = archers.get_mut(active.machine) {
-            if timer.0.just_finished() {
-                timer.0.reset();
-
-                if let Some(enemy) = enemy_target.0 {
-                    if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
-                        if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
-                            let position = bullet_transform.translation().truncate();
-                            let direction = (enemy_transform.translation().truncate() - position).normalize_or_zero();
-                            commands.spawn(bullet(position, direction * 200.0));
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-```
-
-### 系统运行条件
-
-`run_skill` 和 `detect_target_when_idle` 均在 `Update` 调度中运行，且仅在 `Gameplay` 状态下且游戏未暂停时执行：
-
-```rust
-app.add_systems(
-    Update,
-    (
-        run_skill,
-        detect_target_when_idle,
-    )
-        .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
-);
-```
-
-| 组件 | 说明 |
-|------|------|
-| `Archer` | 标记实体为弓箭手，用于系统查询筛选 |
-| `ArcherCombat` | 标记弓箭手处于 Combat 状态（由 `StateComponent` 自动管理） |
-| `CoolingTimer` | 冷却计时器，冷却完毕时触发攻击。每次攻击后需调用 `.reset()` 重置 |
-| `BulletPositionTarget` | 指向 `BulletPosition` 子实体的 Entity 引用，用于快速获取子弹生成坐标 |
-| `EnemyTarget` | 当前锁定的敌人，子弹将朝该敌人方向飞行 |
-| `bullet()` | 生成子弹实体，包含 `Sprite(2×16)`、物理组件、`LinearVelocity` 等 |
 
 ### detect_target_when_idle
 
@@ -195,30 +134,15 @@ commands.spawn((
 4. 攻击范围传感器检测到敌人进入射程，通过碰撞事件更新弓箭手实体的 `EnemyTarget`
 5. `detect_target_when_idle` 查询 `(With<StateComponent<ArcherIdle>>, With<Active>)` 找到 Idle 子状态，通过 `Active.machine` 获取弓箭手实体，`EnemyTarget` 有值后发送 `Idle2Combat`
 6. Gearbox 执行 Idle → Combat 转换，Combat 子状态获得 `Active`
-7. 进入 Combat 状态后，`run_skill` 驱动弓箭手每帧检查冷却并自动发射子弹
-
-### run_skill 数据流
-
-```
-Archer 实体
-    ├── Archer               — 标记为弓箭手
-    ├── CoolingTimer         — 冷却计时
-    ├── BulletPositionTarget — 指向 BulletPosition 子实体的引用
-    └── Children
-        └── BulletPosition   — 提供子弹生成的世界坐标
-    
-    ▼ (CoolingTimer.just_finished())
-    │ 通过 BulletPositionTarget.0 获取子实体 Entity
-    │ 查询 GlobalTransform 获得世界坐标
-    ▼
-commands.spawn(bullet(position, Vec2::new(0.0, 200.0)))
-    │
-    ▼
-Bullet 子弹实体（自动飞行碰撞）
-```
+7. SkillPlugin 中的 `tick_cooldown_timer` 和 `emit_skill_event` 系统自动管理技能冷却与完成事件。
+8. 技能完成后系统自动发出 [`SkillEvent`]，[`BattlePlugin`] 中的 [`fire_bullet_on_skill`] 读取该消息，朝锁定敌人生成子弹。
 
 ## 注意事项
 
 - `ArcherPlugin` 使用 `pub(super)` 可见性，仅在 `crate` 内部可用
 - `Archer` 为标记组件，不含运行时数据；实际属性由 `AttackSpeed`、`ProjectileDamage` 等组件承载
 - 后续可根据需要扩展注册更多类型（如箭矢相关的组件、事件等）
+
+[`SkillEvent`]: ../../skill/SkillEvent.md
+[`BattlePlugin`]: ../../battle/BattlePlugin.md
+[`fire_bullet_on_skill`]: ../../battle/BattlePlugin.md#fire_bullet_on_skill

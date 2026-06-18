@@ -8,15 +8,15 @@ use bevy::prelude::*;
 use bevy_gearbox::prelude::*;
 
 use crate::battle::battle;
-use crate::bullet::{BulletPosition, BulletPositionTarget, bullet};
+use crate::bullet::{BulletPosition, BulletPositionTarget};
 use crate::common::{
-    AttackRange, CoolingTimer, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer,
+    AttackRange, EnemyTarget, EnemyTargetList, GamePhysicsLayer, VisualDisplayLayer,
     attack_range,
 };
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
-use crate::skill::{skill, CooldownFeature, SkillFeatureResult, SkillRunContext, SkillTarget};
+use crate::skill::{skill, SkillTarget};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -85,7 +85,7 @@ impl Plugin for ArcherPlugin {
 
         app.add_systems(
             Update,
-            (run_skill, detect_target_when_idle)
+            detect_target_when_idle
                 .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
@@ -196,74 +196,6 @@ impl RoleBuilder for ArcherRoleBuilder {
         let id = entity.id();
         setup_state_machine(id, commands);
         Ok(id)
-    }
-}
-
-/// System that drives archers to fire bullets automatically.
-///
-/// Only runs for archers currently in `Combat` state (detected via
-/// `StateComponent<ArcherCombat>` + `Active`). Checks the skill entity's
-/// [`SkillRunContext`] feature results: fires a bullet when results are
-/// empty (first run) or all successful; skips if any feature is still
-/// pending or failed. After firing, clears the feature results and resets
-/// the cooldown timer.
-pub fn run_skill(
-    mut commands: Commands,
-    combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, With<Active>)>,
-    archers: Query<
-        (
-            &SkillTarget,
-            &BulletPositionTarget,
-            &GlobalTransform,
-            &EnemyTarget,
-            &ProjectileDamage,
-        ),
-        With<Archer>,
-    >,
-    mut skill_query: Query<(&mut SkillRunContext, &mut CoolingTimer, &CooldownFeature)>,
-    bullet_position_query: Query<&GlobalTransform, With<BulletPosition>>,
-    enemy_transform_query: Query<&GlobalTransform>,
-) {
-    for active in &combat_states {
-        if let Ok((skill_target, target, _archer_transform, enemy_target, damage)) =
-            archers.get(active.machine)
-        {
-            // Check feature results on the skill entity.
-            let can_fire = match skill_query.get(skill_target.0) {
-                Ok((ctx, _, _)) if ctx.feature_results.is_empty() => true,
-                Ok((ctx, _, _)) => {
-                    ctx.feature_results.values().all(|r| matches!(r, SkillFeatureResult::Ok(_)))
-                }
-                Err(_) => false,
-            };
-            if !can_fire {
-                continue;
-            }
-
-            if let Some(enemy) = enemy_target.0 {
-                if let Ok(enemy_transform) = enemy_transform_query.get(enemy) {
-                    if let Ok(bullet_transform) = bullet_position_query.get(target.0) {
-                        let position = bullet_transform.translation().truncate();
-                        let direction = (enemy_transform.translation().truncate() - position)
-                            .normalize_or_zero();
-                        commands.spawn(bullet(
-                            position,
-                            direction * 200.0,
-                            GamePhysicsLayer::detect_enemy_layers(),
-                            damage.0,
-                        ));
-
-                        // Clear feature results and reset cooldown timer.
-                        if let Ok((mut ctx, mut timer, _feature)) =
-                            skill_query.get_mut(skill_target.0)
-                        {
-                            ctx.feature_results.clear();
-                            timer.0.reset();
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 

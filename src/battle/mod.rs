@@ -9,6 +9,10 @@ use crate::attribute::{Attribute, AttributeSet};
 use crate::screens::in_gameplay_and_unpaused;
 use crate::skill::cooldown::{reset_cooldown_timer, tick_cooldown_timer};
 use crate::skill::emit_skill_event;
+use crate::bullet::bullet;
+use crate::common::{EnemyTarget, GamePhysicsLayer};
+use crate::role::archer::ProjectileDamage;
+use crate::skill::SkillEvent;
 
 
 /// Plugin that registers battle-related components, messages, and systems.
@@ -24,7 +28,7 @@ impl Plugin for BattlePlugin {
         app.register_type::<BattleAttributeSet>();
         app.add_message::<DeathInBattle>();
 
-        app.add_systems(Update, despawn_on_death);
+        app.add_systems(Update, (despawn_on_death, fire_bullet_on_skill));
         app.add_systems(
             Update,
             (tick_cooldown_timer, reset_cooldown_timer, emit_skill_event)
@@ -52,6 +56,60 @@ pub fn despawn_on_death(
 ) {
     for event in events.read() {
         commands.entity(event.entity).despawn();
+    }
+}
+
+/// System that reads [`SkillEvent`] messages and fires a bullet at the
+/// skill owner's [`EnemyTarget`].
+///
+/// Data flow:
+///   `SkillEvent.owner`
+///     → [`EnemyTarget`] (locked enemy entity)
+///     → [`GlobalTransform`] (enemy world position)
+///     → own [`GlobalTransform`] (spawn origin)
+///     → `bullet(position, direction × speed, layers, damage)`
+pub fn fire_bullet_on_skill(
+    mut skill_events: MessageReader<SkillEvent>,
+    mut commands: Commands,
+    owners: Query<(
+        &EnemyTarget,
+        &ProjectileDamage,
+        &GlobalTransform,
+    )>,
+    enemy_transforms: Query<&GlobalTransform>,
+) {
+    const BULLET_SPEED: f32 = 200.0;
+
+    for event in skill_events.read() {
+        let Ok((enemy_target, damage, owner_transform)) =
+            owners.get(event.owner)
+        else {
+            continue;
+        };
+
+        // Skip if there is no locked enemy.
+        let Some(enemy) = enemy_target.0 else {
+            continue;
+        };
+
+        // Look up the enemy's world position.
+        let Ok(enemy_transform) = enemy_transforms.get(enemy) else {
+            continue;
+        };
+
+        // Use the owner's position as the spawn origin.
+        let spawn_position = owner_transform.translation().truncate();
+
+        let direction = (enemy_transform.translation().truncate() - spawn_position)
+            .normalize_or_zero();
+        let damage_value = damage.0;
+
+        commands.spawn(bullet(
+            spawn_position,
+            direction * BULLET_SPEED,
+            GamePhysicsLayer::detect_enemy_layers(),
+            damage_value,
+        ));
     }
 }
 

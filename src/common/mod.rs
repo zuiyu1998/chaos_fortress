@@ -18,7 +18,6 @@ impl Plugin for CommonPlugin {
         app.register_type::<VisualDisplayLayer>();
         app.register_type::<GamePhysicsLayer>();
         app.register_type::<AttackRange>();
-        app.register_type::<CoolingTimer>();
         app.register_type::<EnemyTarget>();
         app.register_type::<EnemyTargetList>();
         app.register_type::<UIRoot2d>();
@@ -120,14 +119,6 @@ pub struct EnemyTarget(pub Option<Entity>);
 #[reflect(Component)]
 pub struct EnemyTargetList(pub Vec<Entity>);
 
-/// Cooldown timer.
-///
-/// Stores a Bevy [`Timer`] that counts down cooldown duration
-/// (e.g. between attacks). Use [`TimerMode::Once`] for single-shot
-/// cooldowns.
-#[derive(Component, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Component)]
-pub struct CoolingTimer(pub Timer);
 
 /// Spawn an attack-range sensor.
 ///

@@ -42,6 +42,7 @@ impl Plugin for SkillPlugin {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
         app.register_type::<CooldownFeature>();
+        app.register_type::<CoolingTimer>();
         app.register_type::<SkillRunContext>();
         app.register_type::<SkillTarget>();
         app.add_message::<SkillEvent>();
