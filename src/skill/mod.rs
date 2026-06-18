@@ -383,6 +383,56 @@ pub trait IntoSkillFeatureDefinition {
 }
 
 // ---------------------------------------------------------------------------
+// FromSkillEffectDefinition / IntoSkillEffectDefinition
+// ---------------------------------------------------------------------------
+
+/// Build `Self` from a [`SkillEffectDefinition`]'s numeric dictionary.
+///
+/// # Example
+///
+/// ```ignore
+/// struct FireBulletEffect { speed: f32, damage: f32, count: u32 }
+///
+/// impl FromSkillEffectDefinition for FireBulletEffect {
+///     fn from_effect(def: &SkillEffectDefinition) -> Option<Self> {
+///         Some(Self {
+///             speed: def.get("speed").unwrap_or(200.0),
+///             damage: def.get("damage").unwrap_or(10.0),
+///             count: def.get("count").unwrap_or(1.0) as u32,
+///         })
+///     }
+/// }
+/// ```
+pub trait FromSkillEffectDefinition: Sized {
+    /// Construct `Self` from a [`SkillEffectDefinition`].
+    ///
+    /// Returns `None` when a required parameter is missing.
+    fn from_effect(definition: &SkillEffectDefinition) -> Option<Self>;
+}
+
+/// Convert `Self` into a [`SkillEffectDefinition`].
+///
+/// # Example
+///
+/// ```ignore
+/// struct FireBulletEffect { speed: f32, damage: f32, count: u32 }
+///
+/// impl IntoSkillEffectDefinition for FireBulletEffect {
+///     fn into_effect(self, id: impl Into<String>) -> SkillEffectDefinition {
+///         let mut def = SkillEffectDefinition::new(id);
+///         def.set("speed", self.speed);
+///         def.set("damage", self.damage);
+///         def.set("count", self.count as f32);
+///         def
+///     }
+/// }
+/// ```
+pub trait IntoSkillEffectDefinition {
+    /// Convert `self` into a [`SkillEffectDefinition`] with the given effect `id`.
+    fn into_effect(self, id: impl Into<String>) -> SkillEffectDefinition;
+}
+
+// ---------------------------------------------------------------------------
 // SkillFeatureBuilder
 // ---------------------------------------------------------------------------
 

@@ -30,7 +30,7 @@ use bevy::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{SkillDefinition, SkillFeatureDefinition};
+use super::{SkillDefinition, SkillEffectDefinition, SkillFeatureDefinition};
 
 // ---------------------------------------------------------------------------
 // Loader
@@ -81,6 +81,8 @@ struct SkillDefinitionToml {
     skill: SkillHeader,
     #[serde(default)]
     features: Vec<HashMap<String, toml::Value>>,
+    #[serde(default)]
+    effects: Vec<HashMap<String, toml::Value>>,
 }
 
 #[derive(Deserialize)]
@@ -114,6 +116,27 @@ fn parse_toml(content: &str) -> Result<SkillDefinition, Box<dyn std::error::Erro
         }
 
         definition.add_feature(feature);
+    }
+
+    for effect_map in raw.effects {
+        let effect_id = effect_map
+            .get("id")
+            .and_then(|v| v.as_str())
+            .ok_or("each [[effects]] entry must have an `id` field")?
+            .to_string();
+
+        let mut effect = SkillEffectDefinition::new(effect_id);
+
+        for (key, value) in &effect_map {
+            if key == "id" {
+                continue;
+            }
+            if let Some(num) = value.as_float().or_else(|| value.as_integer().map(|i| i as f64)) {
+                effect.set(key, num as f32);
+            }
+        }
+
+        definition.add_effect(effect);
     }
 
     Ok(definition)

@@ -11,8 +11,10 @@ use crate::skill::cooldown::{reset_cooldown_timer, tick_cooldown_timer};
 use crate::skill::emit_skill_event;
 use crate::bullet::bullet;
 use crate::common::{EnemyTarget, GamePhysicsLayer};
-use crate::role::archer::ProjectileDamage;
-use crate::skill::SkillEvent;
+use crate::skill::{SkillEffectBuilderContainer, SkillEvent};
+
+pub(super) mod fire_bullet;
+use fire_bullet::{FireBulletBuilder, FireBulletEffect};
 
 
 /// Plugin that registers battle-related components, messages, and systems.
@@ -26,7 +28,13 @@ impl Plugin for BattlePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<BattleState>();
         app.register_type::<BattleAttributeSet>();
+        app.register_type::<FireBulletEffect>();
         app.add_message::<DeathInBattle>();
+
+        {
+            let mut container = app.world_mut().resource_mut::<SkillEffectBuilderContainer>();
+            container.register("fire_bullet", FireBulletBuilder);
+        }
 
         app.add_systems(Update, (despawn_on_death, fire_bullet_on_skill));
         app.add_systems(
@@ -62,6 +70,10 @@ pub fn despawn_on_death(
 /// System that reads [`SkillEvent`] messages and fires a bullet at the
 /// skill owner's [`EnemyTarget`].
 ///
+/// The skill entity **must** carry a [`FireBulletEffect`] component; if
+/// absent the event is silently skipped. The effect's `speed` and `damage`
+/// fields control bullet velocity and damage.
+///
 /// Data flow:
 ///   `SkillEvent.owner`
 ///     → [`EnemyTarget`] (locked enemy entity)
@@ -73,15 +85,13 @@ pub fn fire_bullet_on_skill(
     mut commands: Commands,
     owners: Query<(
         &EnemyTarget,
-        &ProjectileDamage,
         &GlobalTransform,
     )>,
     enemy_transforms: Query<&GlobalTransform>,
+    skill_fire_effects: Query<&FireBulletEffect>,
 ) {
-    const BULLET_SPEED: f32 = 200.0;
-
     for event in skill_events.read() {
-        let Ok((enemy_target, damage, owner_transform)) =
+        let Ok((enemy_target, owner_transform)) =
             owners.get(event.owner)
         else {
             continue;
@@ -97,18 +107,22 @@ pub fn fire_bullet_on_skill(
             continue;
         };
 
+        // The skill entity must carry a FireBulletEffect component.
+        let Ok(fire_effect) = skill_fire_effects.get(event.skill) else {
+            continue;
+        };
+
         // Use the owner's position as the spawn origin.
         let spawn_position = owner_transform.translation().truncate();
 
         let direction = (enemy_transform.translation().truncate() - spawn_position)
             .normalize_or_zero();
-        let damage_value = damage.0;
 
         commands.spawn(bullet(
             spawn_position,
-            direction * BULLET_SPEED,
+            direction * fire_effect.speed,
             GamePhysicsLayer::detect_enemy_layers(),
-            damage_value,
+            fire_effect.damage,
         ));
     }
 }
