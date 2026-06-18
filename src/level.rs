@@ -11,7 +11,7 @@ use crate::{
     map::{self, MapData},
     role,
     screens::Screen,
-    skill::{SkillDefinition, SkillFeatureBuilderContainer},
+    skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer},
 };
 
 pub(super) fn plugin(app: &mut App) {
@@ -44,6 +44,7 @@ pub fn spawn_level(
     role_assets: Res<role::assets::RoleAssets>,
     template_assets: Res<Assets<AttributeTemplate>>,
     skill_container: Res<SkillFeatureBuilderContainer>,
+    skill_effect_container: Res<SkillEffectBuilderContainer>,
     skill_assets: Res<Assets<SkillDefinition>>,
 ) {
     for mut transform in &mut camera_query {
@@ -58,7 +59,7 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(level, &role_container, 0, 9, &role_assets, &template_assets, &skill_container, &skill_assets);
+            role::role(level, &role_container, 0, 9, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
             level.spawn(enemy::enemy(
                 map_data.cell_size,
                 4,

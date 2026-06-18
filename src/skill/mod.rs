@@ -47,6 +47,7 @@ impl Plugin for SkillPlugin {
         app.register_type::<SkillTarget>();
         app.add_message::<SkillEvent>();
         app.init_resource::<SkillFeatureBuilderContainer>();
+        app.init_resource::<SkillEffectBuilderContainer>();
         app.register_asset_loader(loader::SkillDefinitionLoader);
     }
 }
@@ -60,16 +61,17 @@ impl Plugin for SkillPlugin {
 /// Returns the spawned child entity's [`Entity`] ID.
 ///
 /// Creates a [`SkillInstance`] with the given `skill_handle` and a [`Name`] component
-/// on a new child entity, then iterates over `definition.features` and uses the
-/// [`SkillFeatureBuilderContainer`] to apply each feature's builder with `skill` set
-/// to the child and `target` set to the parent.
+/// on a new child entity, then iterates over `definition.features` and `definition.effects`
+/// and uses the respective builder containers to apply each feature/effect builder with
+/// `skill` set to the child and `target` set to the parent.
 ///
 /// ```ignore
-/// let skill_entity = skill(&mut spawner, &container, &my_skill_def, my_handle);
+/// let skill_entity = skill(&mut spawner, &feature_container, &effect_container, &my_skill_def, my_handle);
 /// ```
 pub fn skill(
     spawner: &mut ChildSpawnerCommands,
-    container: &SkillFeatureBuilderContainer,
+    feature_container: &SkillFeatureBuilderContainer,
+    effect_container: &SkillEffectBuilderContainer,
     definition: &SkillDefinition,
     skill_handle: Handle<SkillDefinition>,
 ) -> Entity {
@@ -85,7 +87,8 @@ pub fn skill(
         ))
         .id();
 
-    container.build_all(definition, skill_entity, target, &mut commands);
+    feature_container.build_all(definition, skill_entity, target, &mut commands);
+    effect_container.build_all(definition, skill_entity, target, &mut commands);
 
     skill_entity
 }
@@ -136,7 +139,8 @@ impl SkillFeatureDefinition {
 /// A skill template asset.
 ///
 /// Defines the static properties of a skill: a unique `id`, a display `name`,
-/// and a list of [`SkillFeatureDefinition`] entries that carry numeric parameters.
+/// a list of [`SkillFeatureDefinition`] entries that carry numeric parameters,
+/// and a list of [`SkillEffectDefinition`] entries that describe runtime effects.
 ///
 /// Can be loaded from external files via Bevy's asset system, or constructed
 /// programmatically.
@@ -148,15 +152,20 @@ pub struct SkillDefinition {
     pub name: String,
     /// List of numeric feature definitions.
     pub features: Vec<SkillFeatureDefinition>,
+    /// List of effect definitions describing runtime skill effects
+    /// (e.g. fire bullet, heal, AoE damage).
+    pub effects: Vec<SkillEffectDefinition>,
 }
 
 impl SkillDefinition {
-    /// Create a new [`SkillDefinition`] with the given `id` and `name`, and an empty features list.
+    /// Create a new [`SkillDefinition`] with the given `id` and `name`, and empty
+    /// features and effects lists.
     pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
             features: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
@@ -170,6 +179,18 @@ impl SkillDefinition {
     /// Append a [`SkillFeatureDefinition`] to the features list.
     pub fn add_feature(&mut self, feature: SkillFeatureDefinition) {
         self.features.push(feature);
+    }
+
+    /// Find an effect by its effect id.
+    ///
+    /// Returns `None` when no effect matches.
+    pub fn get_effect(&self, effect_id: &str) -> Option<&SkillEffectDefinition> {
+        self.effects.iter().find(|e| e.id == effect_id)
+    }
+
+    /// Append a [`SkillEffectDefinition`] to the effects list.
+    pub fn add_effect(&mut self, effect: SkillEffectDefinition) {
+        self.effects.push(effect);
     }
 }
 
@@ -507,6 +528,175 @@ impl SkillFeatureBuilderContainer {
 }
 
 impl Default for SkillFeatureBuilderContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SkillEffectDefinition
+// ---------------------------------------------------------------------------
+
+/// A skill effect definition, embedded inside [`SkillDefinition`] as part of
+/// its `effects` list.
+///
+/// Each effect carries a unique `id` and a `params` dictionary of numeric
+/// values. Effects describe *what* the skill does (fire a bullet, heal, apply
+/// an AoE), while [`SkillFeatureDefinition`] describes the *numeric dimensions*
+/// of those actions.
+///
+/// This is a plain struct — it is **not** a Bevy [`Component`] or [`Asset`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkillEffectDefinition {
+    /// Unique identifier for this effect (e.g. "fire_bullet", "heal", "aoe_damage").
+    pub id: String,
+    /// Numeric parameter dictionary; keys are parameter names, values are f32.
+    pub params: HashMap<String, f32>,
+}
+
+impl SkillEffectDefinition {
+    /// Create a new [`SkillEffectDefinition`] with the given `id` and an empty dictionary.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            params: HashMap::new(),
+        }
+    }
+
+    /// Get the value for `key`, or `None` if absent.
+    pub fn get(&self, key: &str) -> Option<f32> {
+        self.params.get(key).copied()
+    }
+
+    /// Set the value for `key`.
+    pub fn set(&mut self, key: impl Into<String>, value: f32) {
+        self.params.insert(key.into(), value);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SkillEffectBuilder
+// ---------------------------------------------------------------------------
+
+/// Context passed to [`SkillEffectBuilder::build`].
+///
+/// Carries the effect definition to build from, the skill entity,
+/// and the target (owner/caster) entity.
+pub struct SkillEffectBuilderContext {
+    /// The [`SkillEffectDefinition`] to build from.
+    pub effect: SkillEffectDefinition,
+    /// The skill entity that is being executed.
+    pub skill: Entity,
+    /// The entity this skill belongs to (the owner/caster).
+    pub target: Entity,
+}
+
+/// Trait for building entities from a [`SkillEffectDefinition`].
+///
+/// Implementors define how a specific skill effect (fire bullet, heal,
+/// AoE damage, etc.) is spawned into the ECS world. The
+/// [`build`](SkillEffectBuilder::build) method receives `&mut Commands`
+/// and a [`SkillEffectBuilderContext`].
+///
+/// See also [`SkillFeatureBuilder`] for the counterpart that works with
+/// [`SkillFeatureDefinition`].
+pub trait SkillEffectBuilder: Send + Sync {
+    /// Build an entity from the effect definition and context.
+    ///
+    /// Returns the spawned entity's [`Entity`] ID on success.
+    fn build(
+        &self,
+        commands: &mut Commands,
+        ctx: SkillEffectBuilderContext,
+    ) -> Result<Entity, BuildError>;
+}
+
+// ---------------------------------------------------------------------------
+// SkillEffectBuilderContainer (Resource)
+// ---------------------------------------------------------------------------
+
+/// A Bevy [`Resource`] that maps effect ids to [`SkillEffectBuilder`] closures.
+///
+/// Use [`register`](SkillEffectBuilderContainer::register) to register builders,
+/// and [`build`](SkillEffectBuilderContainer::build) to construct entities by
+/// effect id at runtime.
+///
+/// Unlike [`SkillFeatureBuilderContainer`], this container starts empty —
+/// no builders are registered by default. Each effect system must register
+/// its own builder during plugin setup.
+#[derive(Resource)]
+pub struct SkillEffectBuilderContainer {
+    builders: HashMap<
+        String,
+        Box<dyn Fn(&mut Commands, SkillEffectBuilderContext) -> Result<Entity, BuildError> + Send + Sync>,
+    >,
+}
+
+impl SkillEffectBuilderContainer {
+    /// Create an empty container.
+    ///
+    /// Builders must be registered via [`register`](SkillEffectBuilderContainer::register)
+    /// by individual effect systems (e.g. fire-bullet plugin, heal plugin).
+    pub fn new() -> Self {
+        Self {
+            builders: HashMap::new(),
+        }
+    }
+
+    /// Register a named builder from a [`SkillEffectBuilder`] implementor.
+    pub fn register(&mut self, id: impl Into<String>, builder: impl SkillEffectBuilder + 'static) {
+        let id = id.into();
+        self.builders.insert(
+            id,
+            Box::new(move |commands: &mut Commands, ctx: SkillEffectBuilderContext| {
+                builder.build(commands, ctx)
+            }),
+        );
+    }
+
+    /// Look up a builder by effect id and execute it to spawn an entity.
+    ///
+    /// Returns `Err(BuildError::MissingBuilder)` if no builder is registered
+    /// for `id`, or forwards errors from the builder itself.
+    pub fn build(
+        &self,
+        id: &str,
+        commands: &mut Commands,
+        ctx: SkillEffectBuilderContext,
+    ) -> Result<Entity, BuildError> {
+        self.builders
+            .get(id)
+            .ok_or_else(|| BuildError::MissingBuilder(id.to_string()))
+            .and_then(|f| f(commands, ctx))
+    }
+
+    /// Build all effects from a [`SkillDefinition`] on the given entities.
+    ///
+    /// `skill_entity` is the skill child entity; `target` is the owner/parent entity.
+    /// Each effect builder receives both.
+    pub fn build_all(
+        &self,
+        definition: &SkillDefinition,
+        skill_entity: Entity,
+        target: Entity,
+        commands: &mut Commands,
+    ) {
+        for effect in &definition.effects {
+            let ctx = SkillEffectBuilderContext {
+                effect: effect.clone(),
+                skill: skill_entity,
+                target,
+            };
+            if let Some(builder) = self.builders.get(&effect.id) {
+                if let Err(e) = builder(commands, ctx) {
+                    bevy::log::warn!("skill effect '{}' failed: {e}", effect.id);
+                }
+            }
+        }
+    }
+}
+
+impl Default for SkillEffectBuilderContainer {
     fn default() -> Self {
         Self::new()
     }

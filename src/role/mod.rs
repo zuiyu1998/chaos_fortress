@@ -17,7 +17,7 @@ use crate::asset_tracking::LoadResource;
 use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
 use crate::common::{AttackRange, EnemyTarget, EnemyTargetList};
 use crate::enemy::Enemy;
-use crate::skill::{SkillDefinition, SkillFeatureBuilderContainer};
+use crate::skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer};
 
 pub(super) struct RolePlugin;
 
@@ -72,6 +72,7 @@ pub fn role<'w>(
     role_assets: &assets::RoleAssets,
     template_assets: &Assets<AttributeTemplate>,
     skill_container: &SkillFeatureBuilderContainer,
+    skill_effect_container: &SkillEffectBuilderContainer,
     skill_assets: &Assets<SkillDefinition>,
 ) -> Entity {
     let attrs = template_assets
@@ -96,6 +97,7 @@ pub fn role<'w>(
         parent: Some(spawner.target_entity()),
         attributes: attrs,
         skill_container,
+        skill_effect_container,
         archer_skill,
         archer_skill_handle: role_assets.archer_skill.clone(),
     };
@@ -124,6 +126,9 @@ pub struct RoleBuilderContext<'a> {
     /// Skill feature builder container, used to apply skill feature builders
     /// when creating skill child entities.
     pub skill_container: &'a SkillFeatureBuilderContainer,
+    /// Skill effect builder container, used to apply skill effect builders
+    /// when creating skill child entities.
+    pub skill_effect_container: &'a SkillEffectBuilderContainer,
     /// The archer's skill definition, resolved from the asset handle.
     pub archer_skill: &'a SkillDefinition,
     /// The archer's skill handle, used when creating [`SkillInstance`](crate::skill::SkillInstance).
