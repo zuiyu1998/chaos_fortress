@@ -9,6 +9,7 @@
 //! - **[`SkillFeatureDefinition`]** — A plain struct holding a numeric parameter dictionary,
 //!   embedded inside [`SkillDefinition`].
 //! - **[`SkillInstance`]** — A [`Component`] that binds a skill asset handle to an entity.
+//! - **[`SkillActive`]** — A marker [`Component`] indicating the skill is currently activated / executing.
 //! - **[`SkillFeatureBuilderContext`]** — Context passed to [`SkillFeatureBuilder`].
 //! - **[`BuildError`]** — Error type for builder operations.
 //! - **[`SkillFeatureBuilder`]** — A trait for spawning entities from skill features.
@@ -41,6 +42,7 @@ impl Plugin for SkillPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<SkillDefinition>();
         app.register_type::<SkillInstance>();
+        app.register_type::<SkillActive>();
         app.register_type::<CooldownFeature>();
         app.register_type::<CoolingTimer>();
         app.register_type::<SkillRunContext>();
@@ -209,6 +211,21 @@ pub struct SkillInstance {
     /// Handle to the [`SkillDefinition`] asset this instance refers to.
     pub skill: Handle<SkillDefinition>,
 }
+
+// ---------------------------------------------------------------------------
+// SkillActive (Component)
+// ---------------------------------------------------------------------------
+
+/// Marker component indicating that a skill entity is currently in an
+/// activated / executing state.
+///
+/// Attached to the same entity that carries [`SkillInstance`]. When present,
+/// the skill is considered active (e.g. its effects are running, a channel
+/// is in progress). Systems that need to know whether a skill is active
+/// can query for this component.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
+#[reflect(Component)]
+pub struct SkillActive;
 
 // ---------------------------------------------------------------------------
 // SkillFeatureResult & SkillRunContext

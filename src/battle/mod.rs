@@ -11,7 +11,7 @@ use crate::skill::cooldown::{reset_cooldown_timer, tick_cooldown_timer};
 use crate::skill::emit_skill_event;
 use crate::bullet::bullet;
 use crate::common::{EnemyTarget, GamePhysicsLayer};
-use crate::skill::{SkillEffectBuilderContainer, SkillEvent};
+use crate::skill::{SkillActive, SkillEffectBuilderContainer, SkillEvent};
 
 pub(super) mod fire_bullet;
 use fire_bullet::{FireBulletBuilder, FireBulletEffect};
@@ -88,7 +88,7 @@ pub fn fire_bullet_on_skill(
         &GlobalTransform,
     )>,
     enemy_transforms: Query<&GlobalTransform>,
-    skill_fire_effects: Query<&FireBulletEffect>,
+    skill_fire_effects: Query<&FireBulletEffect, With<SkillActive>>,
 ) {
     for event in skill_events.read() {
         let Ok((enemy_target, owner_transform)) =

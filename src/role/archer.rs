@@ -16,7 +16,7 @@ use crate::common::{
 use crate::{Pause, screens::Screen};
 
 use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
-use crate::skill::{skill, SkillTarget};
+use crate::skill::{skill, SkillActive, SkillTarget};
 
 /// Marker component inserted on the archer entity while in Idle state.
 ///
@@ -85,7 +85,10 @@ impl Plugin for ArcherPlugin {
 
         app.add_systems(
             Update,
-            detect_target_when_idle
+            (
+                detect_target_when_idle,
+                add_skill_active_when_combat,
+            )
                 .run_if(in_state(Screen::Gameplay).and(in_state(Pause(false)))),
         );
     }
@@ -196,6 +199,25 @@ impl RoleBuilder for ArcherRoleBuilder {
         let id = entity.id();
         setup_state_machine(id, commands);
         Ok(id)
+    }
+}
+
+/// When the Combat substate becomes active (Idle→Combat transition completes),
+/// add [`SkillActive`] to the archer's skill entity.
+///
+/// Uses `Added<Active>` so this only fires once per Combat activation, not every
+/// frame. Combined with `With<StateComponent<ArcherCombat>>` to target the Combat
+/// substate. Reads `Active.machine` to get the archer root, then uses its
+/// [`SkillTarget`] to find the skill child.
+pub fn add_skill_active_when_combat(
+    combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, Added<Active>)>,
+    archers: Query<&SkillTarget, With<Archer>>,
+    mut commands: Commands,
+) {
+    for active in &combat_states {
+        if let Ok(skill_target) = archers.get(active.machine) {
+            commands.entity(skill_target.0).insert(SkillActive);
+        }
     }
 }
 
