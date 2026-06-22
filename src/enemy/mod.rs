@@ -1,12 +1,15 @@
 //! Enemy module.
 //!
 //! Defines the [`Enemy`] component, which marks an entity as an enemy unit,
-//! along with [`EnemyBuilder`], [`EnemyBuilderContext`], and
-//! [`EnemyBuilderContainer`] for flexible enemy entity construction.
+//! and the [`Base`] component, which marks an entity as a base (enemy no-go
+//! zone). Provides flexible enemy entity construction through
+//! [`EnemyBuilder`], [`EnemyBuilderContext`], and
+//! [`EnemyBuilderContainer`], along with collision-based game-over detection
+//! via [`check_enemy_enters_base`].
 
 use std::collections::HashMap;
 
-use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
+use avian2d::prelude::{Collider, CollisionEventsEnabled, CollisionStart, LinearVelocity, RigidBody, Sensor};
 use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::prelude::*;
 
@@ -18,6 +21,37 @@ use crate::role::archer::ProjectileDamage;
 
 pub(super) mod assets;
 
+/// Entry plugin for the enemy module.
+///
+/// Registers enemy-related ECS types ([`Enemy`], [`Base`]) and systems
+/// ([`check_enemy_enters_base`]) with the Bevy [`App`], and initializes
+/// the [`EnemyBuilderContainer`] resource and [`assets::EnemyAssets`].
+///
+/// # Registration
+///
+/// | Item | Kind | Description |
+/// |---|---|---|
+/// | [`Enemy`] | Component | Marks an entity as an enemy unit |
+/// | [`Base`] | Component | Marks an entity as a base (enemy no-go zone) |
+/// | [`EnemyBuilderContainer`] | Resource | Registry mapping enemy type names to builders |
+/// | [`assets::EnemyAssets`] | Resource/Asset | Handles for enemy asset dependencies |
+/// | [`check_enemy_enters_base`] | System | Monitors collisions between enemies and the base |
+///
+/// # Usage
+///
+/// ```rust
+/// app.add_plugins(enemy::EnemyPlugin);
+/// ```
+///
+/// # Interaction flow
+///
+/// 1. This plugin registers [`Enemy`], [`Base`] components and
+///    [`check_enemy_enters_base`] into the Bevy world.
+/// 2. The level system spawns the map, a base entity (via [`base`]),
+///    and enemy entities (via [`enemy`]).
+/// 3. Enemy AI systems drive enemy movement.
+/// 4. When an enemy enters the base area, [`check_enemy_enters_base`]
+///    detects the collision and logs `"游戏已结算"`.
 pub(super) struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
@@ -28,6 +62,8 @@ impl Plugin for EnemyPlugin {
         app.load_resource::<assets::EnemyAssets>();
         let mut container = app.world_mut().resource_mut::<EnemyBuilderContainer>();
         container.register("basic", BasicEnemyBuilder);
+
+        app.add_systems(Update, check_enemy_enters_base);
     }
 }
 
@@ -57,6 +93,26 @@ pub struct Enemy;
 #[reflect(Component)]
 pub struct Base;
 
+/// System that monitors collision events between enemies and the base.
+///
+/// When an enemy collides with the base (a [`Base`] entity), the game is
+/// considered over. This system prints `"游戏已结算"` to signal the game
+/// has been settled.
+pub fn check_enemy_enters_base(
+    mut started: MessageReader<CollisionStart>,
+    bases: Query<&Base>,
+    enemies: Query<&Enemy>,
+) {
+    for event in started.read() {
+        let (e1, e2) = (event.collider1, event.collider2);
+        if (bases.contains(e1) && enemies.contains(e2))
+            || (bases.contains(e2) && enemies.contains(e1))
+        {
+            info!("游戏已结算");
+        }
+    }
+}
+
 /// Spawn a base entity at the given grid position.
 ///
 /// The base spans a rectangular area of `width` and `height` (in grid
@@ -66,6 +122,8 @@ pub struct Base;
 /// The base entity carries:
 /// - A [`Base`] marker component.
 /// - A [`Collider::rectangle`] matching the spanned area.
+/// - [`CollisionEventsEnabled`] so collision events are emitted.
+/// - [`Sensor`] so the collider acts as a trigger (no physical pushback).
 /// - [`GamePhysicsLayer::base_layers()`] so it physically interacts
 ///   only with enemies.
 pub fn base(
@@ -84,6 +142,8 @@ pub fn base(
         Base,
         Transform::from_xyz(center_x, center_y, VisualDisplayLayer::Character.z_value()),
         Collider::rectangle(px_width, px_height),
+        CollisionEventsEnabled,
+        Sensor,
         GamePhysicsLayer::base_layers(),
     )
 }
