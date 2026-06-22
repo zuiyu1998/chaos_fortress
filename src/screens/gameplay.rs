@@ -3,10 +3,17 @@
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 use bevy::ecs::schedule::SystemCondition;
 
-use crate::{level::spawn_level, state::{Menu, Pause, Screen}};
+use avian2d::prelude::LinearVelocity;
+
+use crate::enemy::Enemy;
+use crate::theme::widget;
+use crate::{level::spawn_level, state::{Finish, Menu, Pause, Screen}};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Gameplay), spawn_level);
+
+    // When the game is settled, stop all enemies and show settlement UI.
+    app.add_systems(OnEnter(Finish(true)), (stop_enemies, spawn_settlement_ui));
 
     // Toggle pause on key press.
     app.add_systems(
@@ -65,4 +72,29 @@ fn open_pause_menu(mut next_menu: ResMut<NextState<Menu>>) {
 
 fn close_menu(mut next_menu: ResMut<NextState<Menu>>) {
     next_menu.set(Menu::None);
+}
+
+/// Stop all enemy movement when the game is settled.
+fn stop_enemies(mut enemies: Query<&mut LinearVelocity, With<Enemy>>) {
+    for mut velocity in &mut enemies {
+        velocity.0 = Vec2::ZERO;
+    }
+}
+
+/// Spawn the settlement UI when the game is finished.
+fn spawn_settlement_ui(mut commands: Commands) {
+    commands.spawn((
+        widget::ui_root("Settlement UI"),
+        GlobalZIndex(2),
+        DespawnOnExit(Finish(true)),
+        children![
+            widget::header("Game Over"),
+            widget::button("Back to Title", quit_to_title),
+        ],
+    ));
+}
+
+fn quit_to_title(_: On<Pointer<Click>>, mut next_screen: ResMut<NextState<Screen>>, mut next_finish: ResMut<NextState<Finish>>) {
+    next_screen.set(Screen::Title);
+    next_finish.set(Finish(false));
 }
