@@ -81,9 +81,9 @@ impl GamePhysicsLayer {
     /// Returns [`CollisionLayers`] for an enemy entity.
     ///
     /// Enemy entities belong to the `Enemy` layer and interact with
-    /// the world and player characters.
+    /// the world, player characters, and base entities.
     pub fn enemy_layers() -> CollisionLayers {
-        CollisionLayers::new(Self::Enemy, [Self::World, Self::Character])
+        CollisionLayers::new(Self::Enemy, [Self::World, Self::Character, Self::Base])
     }
 
     /// Returns [`CollisionLayers`] that only detects enemy entities.

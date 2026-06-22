@@ -18,6 +18,7 @@ use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
 use crate::battle::battle;
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
 use crate::role::archer::ProjectileDamage;
+use crate::state::Finish;
 
 pub(super) mod assets;
 
@@ -97,11 +98,12 @@ pub struct Base;
 ///
 /// When an enemy collides with the base (a [`Base`] entity), the game is
 /// considered over. This system prints `"游戏已结算"` to signal the game
-/// has been settled.
+/// has been settled and sets [`Finish`] to `true`.
 pub fn check_enemy_enters_base(
     mut started: MessageReader<CollisionStart>,
     bases: Query<&Base>,
     enemies: Query<&Enemy>,
+    mut next_finish: ResMut<NextState<Finish>>,
 ) {
     for event in started.read() {
         let (e1, e2) = (event.collider1, event.collider2);
@@ -109,6 +111,7 @@ pub fn check_enemy_enters_base(
             || (bases.contains(e2) && enemies.contains(e1))
         {
             info!("游戏已结算");
+            next_finish.set(Finish(true));
         }
     }
 }
@@ -142,6 +145,7 @@ pub fn base(
         Base,
         Transform::from_xyz(center_x, center_y, VisualDisplayLayer::Character.z_value()),
         Collider::rectangle(px_width, px_height),
+        RigidBody::Kinematic,
         CollisionEventsEnabled,
         Sensor,
         GamePhysicsLayer::base_layers(),

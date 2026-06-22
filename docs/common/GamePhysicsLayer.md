@@ -17,7 +17,7 @@
 |----------|---------------------|-------------------|------|
 | `World` | `World` | `Character`, `Enemy` | 世界与角色和敌人碰撞，不与自身碰撞 |
 | `Character` | `Character` | `World`, `Enemy` | 角色与世界和敌人碰撞，不与友方碰撞 |
-| `Enemy` | `Enemy` | `World`, `Character` | 敌人与世界和角色碰撞，不与其他敌人碰撞 |
+| `Enemy` | `Enemy` | `World`, `Character`, `Base` | 敌人与世界、角色和基地碰撞，不与其他敌人碰撞 |
 | `Base` | `Base` | `Enemy` | 基地只与敌人碰撞，不与角色碰撞 |
 | 传感器（如攻击范围） | `Character` | `Enemy` | 只检测敌人，用于传感器类型的实体 |
 

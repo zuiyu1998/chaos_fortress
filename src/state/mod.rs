@@ -2,7 +2,8 @@
 //!
 //! Defines the [`Screen`] and [`Pause`] states along with the
 //! [`PausableSystems`] system set that controls which systems should
-//! not run while the game is paused.
+//! not run while the game is paused, and [`Finish`] state indicating
+//! when the game has been settled.
 
 use bevy::prelude::*;
 
@@ -34,3 +35,7 @@ pub struct Pause(pub bool);
 /// A system set for systems that shouldn't run while the game is paused.
 #[derive(SystemSet, Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct PausableSystems;
+
+/// Whether or not the game has finished (settled).
+#[derive(States, Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
+pub struct Finish(pub bool);

@@ -68,7 +68,7 @@ pub fn spawn_level(
             role::role(level, &role_container, 2, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
             level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             for row in 0..map_data.height {
-                enemy::enemy(level, &enemy_container, 10, row, map_data.cell_size, &enemy_assets, &template_assets);
+                enemy::enemy(level, &enemy_container, 3, row, map_data.cell_size, &enemy_assets, &template_assets);
             }
             level.spawn((
                 Name::new("Gameplay Music"),
