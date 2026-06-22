@@ -6,6 +6,7 @@ mod pause;
 mod settings;
 
 use bevy::prelude::*;
+use crate::state::Menu;
 
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Menu>();
@@ -18,12 +19,3 @@ pub(super) fn plugin(app: &mut App) {
     ));
 }
 
-#[derive(States, Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
-pub enum Menu {
-    #[default]
-    None,
-    Main,
-    Credits,
-    Settings,
-    Pause,
-}

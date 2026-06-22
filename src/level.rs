@@ -10,8 +10,8 @@ use crate::{
     enemy,
     map::{self, MapData},
     role,
-    screens::Screen,
     skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer},
+    state::Screen,
 };
 
 pub(super) fn plugin(app: &mut App) {

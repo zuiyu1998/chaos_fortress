@@ -9,7 +9,7 @@ use bevy::{
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-use crate::screens::Screen;
+use crate::state::Screen;
 
 pub(super) fn plugin(app: &mut App) {
     // Log `Screen` state transitions.

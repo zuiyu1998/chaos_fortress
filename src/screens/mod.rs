@@ -7,6 +7,7 @@ mod splash;
 mod title;
 
 use bevy::prelude::*;
+use crate::state::Screen;
 
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Screen>();
@@ -17,14 +18,4 @@ pub(super) fn plugin(app: &mut App) {
         splash::plugin,
         title::plugin,
     ));
-}
-
-/// The game's main screen states.
-#[derive(States, Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
-pub enum Screen {
-    #[default]
-    Splash,
-    Title,
-    Loading,
-    Gameplay,
 }
