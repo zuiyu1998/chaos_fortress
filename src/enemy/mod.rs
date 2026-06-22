@@ -23,6 +23,7 @@ pub(super) struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Enemy>();
+        app.register_type::<Base>();
         app.insert_resource(EnemyBuilderContainer::new());
         app.load_resource::<assets::EnemyAssets>();
         let mut container = app.world_mut().resource_mut::<EnemyBuilderContainer>();
@@ -39,6 +40,53 @@ impl Plugin for EnemyPlugin {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct Enemy;
+
+/// A component that marks an entity as a "base" (home base).
+///
+/// Base entities define an area that enemies must not enter. The enemy
+/// AI treats cells occupied by a base as **blocked** — no enemy unit
+/// can path into or stand on them. This prevents enemies from reaching
+/// the player's deployment zone.
+///
+/// Unlike [`World`](crate::common::GamePhysicsLayer) collision layers,
+/// which handle physical barriers, `Base` is a **logical boundary** that
+/// the enemy AI queries during movement planning. It may also carry a
+/// [`Collider`] with [`base_layers`](crate::common::GamePhysicsLayer::base_layers)
+/// so that enemies that do collide with it trigger game-over logic.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct Base;
+
+/// Spawn a base entity at the given grid position.
+///
+/// The base spans a rectangular area of `width` and `height` (in grid
+/// cells), starting from `(column, row)` and extending rightward and
+/// upward (negative y). Each cell is `cell_size` pixels square.
+///
+/// The base entity carries:
+/// - A [`Base`] marker component.
+/// - A [`Collider::rectangle`] matching the spanned area.
+/// - [`GamePhysicsLayer::base_layers()`] so it physically interacts
+///   only with enemies.
+pub fn base(
+    column: u32,
+    row: u32,
+    cell_size: f32,
+    width: u32,
+    height: u32,
+) -> impl Bundle {
+    let center_x = (column as f32 + (width as f32 - 1.0) / 2.0) * cell_size;
+    let center_y = -(row as f32 + (height as f32 - 1.0) / 2.0) * cell_size;
+    let px_width = width as f32 * cell_size;
+    let px_height = height as f32 * cell_size;
+    (
+        Name::new(format!("Base ({column},{row}) {width}x{height}")),
+        Base,
+        Transform::from_xyz(center_x, center_y, VisualDisplayLayer::Character.z_value()),
+        Collider::rectangle(px_width, px_height),
+        GamePhysicsLayer::base_layers(),
+    )
+}
 
 /// Spawn an enemy entity as a child via [`ChildSpawnerCommands`].
 ///

@@ -10,4 +10,4 @@
 
 ## 与敌人系统的关系
 
-`Enemy` 组件是 `enemy_system.md` 中定义的敌人数据模型的 ECS 实现载体。敌人的属性、AI 模式和掉落数据通过附加的组件表达，行为由对应的 System 驱动。
+`Enemy` 组件是 [`EnemySystem.md`](./EnemySystem.md) 中定义的敌人数据模型的 ECS 实现载体。敌人的属性、AI 模式和掉落数据通过附加的组件表达，行为由对应的 System 驱动。

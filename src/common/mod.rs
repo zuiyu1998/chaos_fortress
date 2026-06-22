@@ -57,6 +57,8 @@ pub enum GamePhysicsLayer {
     Character,
     /// Enemy layer.
     Enemy,
+    /// Base layer — friendly structures / home base.
+    Base,
 }
 
 impl GamePhysicsLayer {
@@ -91,6 +93,13 @@ impl GamePhysicsLayer {
     /// only interact with enemies.
     pub fn detect_enemy_layers() -> CollisionLayers {
         CollisionLayers::new(Self::Character, [Self::Enemy])
+    }
+
+    /// Returns [`CollisionLayers`] for a base entity.
+    ///
+    /// Base entities belong to the `Base` layer and interact with enemies.
+    pub fn base_layers() -> CollisionLayers {
+        CollisionLayers::new(Self::Base, [Self::Enemy])
     }
 }
 

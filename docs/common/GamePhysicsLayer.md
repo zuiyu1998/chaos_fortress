@@ -9,6 +9,7 @@
 | `World`（默认） | `1 << 0` | 静态世界层，包含地形、墙壁、障碍物等 |
 | `Character` | `1 << 1` | 角色层，玩家操控的单位 |
 | `Enemy` | `1 << 2` | 敌人层，敌对单位 |
+| `Base` | `1 << 3` | 基地层，玩家方建筑 / 基地 |
 
 ## 碰撞规则
 
@@ -17,6 +18,7 @@
 | `World` | `World` | `Character`, `Enemy` | 世界与角色和敌人碰撞，不与自身碰撞 |
 | `Character` | `Character` | `World`, `Enemy` | 角色与世界和敌人碰撞，不与友方碰撞 |
 | `Enemy` | `Enemy` | `World`, `Character` | 敌人与世界和角色碰撞，不与其他敌人碰撞 |
+| `Base` | `Base` | `Enemy` | 基地只与敌人碰撞，不与角色碰撞 |
 | 传感器（如攻击范围） | `Character` | `Enemy` | 只检测敌人，用于传感器类型的实体 |
 
 ## 使用方法
@@ -68,16 +70,19 @@ CollisionLayers::new(GamePhysicsLayer::Character, [GamePhysicsLayer::Enemy]);
 - `World`（第 0 位，`0b001`）—— 默认层，`#[default]` 标记
 - `Character`（第 1 位，`0b010`）
 - `Enemy`（第 2 位，`0b100`）
+- `Base`（第 3 位，`0b1000`）
 
 ## 与现有模块的关系
 
 - **角色模块**：`role` 生成的角色使用 `GamePhysicsLayer::character_layers()`
 - **敌人模块**：`enemy` 生成的敌人使用 `GamePhysicsLayer::enemy_layers()`
 - **地图模块**：`map_cell` 生成的地形使用 `GamePhysicsLayer::world_layers()`
+- **基地模块**：底座实体使用 `GamePhysicsLayer::base_layers()`
 
 ## 关联 API
 
 - `world_layers() -> CollisionLayers` —— 生成世界实体碰撞配置
 - `character_layers() -> CollisionLayers` —— 生成角色实体碰撞配置
 - `enemy_layers() -> CollisionLayers` —— 生成敌人实体碰撞配置
+- `base_layers() -> CollisionLayers` —— 生成基地实体碰撞配置（所属层为 Base，仅过滤 Enemy）
 - `detect_enemy_layers() -> CollisionLayers` —— 生成只检测敌人的传感器碰撞配置（所属层为 Character，仅过滤 Enemy）

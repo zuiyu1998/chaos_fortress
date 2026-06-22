@@ -65,7 +65,8 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(level, &role_container, 0, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
+            role::role(level, &role_container, 2, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
+            level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             for row in 0..map_data.height {
                 enemy::enemy(level, &enemy_container, 10, row, map_data.cell_size, &enemy_assets, &template_assets);
             }
