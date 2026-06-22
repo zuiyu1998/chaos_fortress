@@ -10,9 +10,12 @@ use avian2d::prelude::{Collider, LinearVelocity, RigidBody};
 use bevy::ecs::hierarchy::ChildSpawnerCommands;
 use bevy::prelude::*;
 
-use crate::attribute::{Attribute, AttributeSet};
+use crate::asset_tracking::LoadResource;
+use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
 use crate::battle::battle;
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
+
+pub(super) mod assets;
 
 pub(super) struct EnemyPlugin;
 
@@ -20,6 +23,7 @@ impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Enemy>();
         app.insert_resource(EnemyBuilderContainer::new());
+        app.load_resource::<assets::EnemyAssets>();
         let mut container = app.world_mut().resource_mut::<EnemyBuilderContainer>();
         container.register("basic", BasicEnemyBuilder);
     }
@@ -38,18 +42,32 @@ pub struct Enemy;
 /// Spawn an enemy entity as a child via [`ChildSpawnerCommands`].
 ///
 /// Uses the [`EnemyBuilderContainer`] to look up the `"basic"` builder to
-/// generate an enemy entity.
+/// generate an enemy entity. The [`AttributeSet`] is built from the basic enemy
+/// attribute template loaded via [`assets::EnemyAssets`].
 pub fn enemy<'w>(
     spawner: &mut ChildSpawnerCommands<'w>,
     container: &EnemyBuilderContainer,
     column: u32,
     row: u32,
     cell_size: f32,
+    enemy_assets: &assets::EnemyAssets,
+    template_assets: &Assets<AttributeTemplate>,
 ) -> Entity {
+    let attrs = template_assets
+        .get(&enemy_assets.basic_attributes)
+        .map(|t| t.build_attribute_set(&["hp", "max_hp", "armor"]))
+        .unwrap_or_else(|| {
+            let mut a = AttributeSet::new();
+            a.insert("hp", Attribute::new(100.0));
+            a.insert("max_hp", Attribute::new(100.0));
+            a.insert("armor", Attribute::new(10.0));
+            a
+        });
     let ctx = EnemyBuilderContext {
         position: (column, row),
         cell_size,
         parent: Some(spawner.target_entity()),
+        attributes: attrs,
     };
     let mut cmds = spawner.commands();
     container
@@ -70,10 +88,6 @@ impl EnemyBuilder for BasicEnemyBuilder {
         let cell_size = ctx.cell_size;
         let x = col as f32 * cell_size;
         let y = -(row as f32 * cell_size);
-        let mut attrs = AttributeSet::new();
-        attrs.insert("hp", Attribute::new(100.0));
-        attrs.insert("max_hp", Attribute::new(100.0));
-        attrs.insert("armor", Attribute::new(10.0));
         let mut entity = commands.spawn((
             Name::new(format!("Enemy ({col},{row})")),
             Enemy,
@@ -84,7 +98,7 @@ impl EnemyBuilder for BasicEnemyBuilder {
             Collider::circle(cell_size / 2.0),
             GamePhysicsLayer::enemy_layers(),
             LinearVelocity(Vec2::new(0.0, -10.0)),
-            battle(attrs),
+            battle(ctx.attributes),
         ));
         if let Some(parent) = ctx.parent {
             entity.set_parent_in_place(parent);
@@ -115,7 +129,8 @@ impl std::error::Error for EnemyBuildError {}
 
 /// Context for building an enemy entity.
 ///
-/// Encapsulates grid position, cell size, and optional parent entity.
+/// Encapsulates grid position, cell size, optional parent entity, and
+/// [`AttributeSet`] for combat stats.
 /// The `Commands` reference is passed directly to
 /// [`EnemyBuilder::build`] instead of being stored here.
 pub struct EnemyBuilderContext {
@@ -129,6 +144,9 @@ pub struct EnemyBuilderContext {
     /// Optional parent entity. When `Some`, the built entity should be
     /// parented to this entity.
     pub parent: Option<Entity>,
+    /// Attribute set for combat stats. The builder should use these
+    /// attributes when constructing the entity.
+    pub attributes: AttributeSet,
 }
 
 /// Trait for building enemy entities.

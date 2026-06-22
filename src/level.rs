@@ -47,6 +47,7 @@ pub fn spawn_level(
     skill_effect_container: Res<SkillEffectBuilderContainer>,
     skill_assets: Res<Assets<SkillDefinition>>,
     enemy_container: Res<enemy::EnemyBuilderContainer>,
+    enemy_assets: Res<enemy::assets::EnemyAssets>,
 ) {
     for mut transform in &mut camera_query {
         transform.translation = Vec3::new(640.0, -360.0, 0.0);
@@ -62,7 +63,7 @@ pub fn spawn_level(
             map::map(level, &map_data);
             role::role(level, &role_container, 0, 9, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
             for column in 0..map_data.width {
-                enemy::enemy(level, &enemy_container, column, 2, map_data.cell_size);
+                enemy::enemy(level, &enemy_container, column, 2, map_data.cell_size, &enemy_assets, &template_assets);
             }
             level.spawn((
                 Name::new("Gameplay Music"),

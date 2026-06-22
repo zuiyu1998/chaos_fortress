@@ -89,7 +89,7 @@ pub fn role<'w>(
             a.insert("attack_range", Attribute::new(2.0));
             a
         });
-    let archer_skill = skill_assets
+    let skill = skill_assets
         .get(&role_assets.archer_skill)
         .expect("archer skill asset not loaded");
     let ctx = RoleBuilderContext {
@@ -98,8 +98,8 @@ pub fn role<'w>(
         attributes: attrs,
         skill_container,
         skill_effect_container,
-        archer_skill,
-        archer_skill_handle: role_assets.archer_skill.clone(),
+        skill,
+        skill_handle: role_assets.archer_skill.clone(),
     };
     let mut cmds = spawner.commands();
     container
@@ -129,10 +129,10 @@ pub struct RoleBuilderContext<'a> {
     /// Skill effect builder container, used to apply skill effect builders
     /// when creating skill child entities.
     pub skill_effect_container: &'a SkillEffectBuilderContainer,
-    /// The archer's skill definition, resolved from the asset handle.
-    pub archer_skill: &'a SkillDefinition,
-    /// The archer's skill handle, used when creating [`SkillInstance`](crate::skill::SkillInstance).
-    pub archer_skill_handle: Handle<SkillDefinition>,
+    /// The skill definition, resolved from the asset handle.
+    pub skill: &'a SkillDefinition,
+    /// The skill handle, used when creating [`SkillInstance`](crate::skill::SkillInstance).
+    pub skill_handle: Handle<SkillDefinition>,
 }
 
 /// Error returned when building a role entity fails.

@@ -1,6 +1,6 @@
 # EnemyBuilderContext
 
-`EnemyBuilderContext` 是构建敌人实体所需的**上下文参数对象**，将网格位置、格子尺寸和父子关系封装为一个结构体。
+`EnemyBuilderContext` 是构建敌人实体所需的**上下文参数对象**，将网格位置、格子尺寸、父子关系和属性集封装为一个结构体。
 
 ## 设计动机
 
@@ -13,7 +13,7 @@
 ```rust
 /// 构建敌人实体所需的上下文环境。
 ///
-/// 封装了网格位置、格子尺寸以及父子关系。`Commands` 由 [`EnemyBuilder::build`]
+/// 封装了网格位置、格子尺寸、父子关系以及属性集。`Commands` 由 [`EnemyBuilder::build`]
 /// 直接传入，不存储在此结构体中。
 pub struct EnemyBuilderContext {
     /// 敌人在网格中的位置，格式为 `(列, 行)`。
@@ -23,6 +23,8 @@ pub struct EnemyBuilderContext {
     /// 可选的父实体（如 Level 实体）。
     /// 当为 `Some` 时，实现者应将敌人生成为该实体的子级。
     pub parent: Option<Entity>,
+    /// 敌人的属性集，定义其战斗数值（生命、攻击力等）。
+    pub attributes: AttributeSet,
 }
 ```
 
@@ -33,6 +35,7 @@ pub struct EnemyBuilderContext {
 | `position` | `(u32, u32)` | 敌人所在的网格坐标，格式为 `(列, 行)`。列对应 X 轴，行对应 Y 轴，原点 (0,0) 为网格左上角。 |
 | `cell_size` | `f32` | 每个格子的像素尺寸（正方形边长），用于将网格坐标转换为屏幕坐标：`x = col * cell_size`，`y = -(row * cell_size)`。 |
 | `parent` | `Option<Entity>` | 父实体。当敌人需要挂接到某个实体（如 `Level`）下时使用。`None` 表示无父实体。 |
+| `attributes` | `AttributeSet` | 属性集，封装敌人的战斗数值（如最大生命、攻击力、防御力等），由外部系统在构建阶段注入。 |
 
 ## 构造方式
 
@@ -41,6 +44,7 @@ let ctx = EnemyBuilderContext {
     position: (4, 2),
     cell_size: 64.0,
     parent: Some(level_entity),
+    attributes: AttributeSet::default(),
 };
 ```
 
