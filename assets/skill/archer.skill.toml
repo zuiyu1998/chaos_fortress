@@ -9,6 +9,6 @@ cooldown_duration = 1.0
 [[effects]]
 id = "fire_bullet"
 speed = 300.0
-damage = 25.0
+damage = 10.0
 count = 1.0
 
