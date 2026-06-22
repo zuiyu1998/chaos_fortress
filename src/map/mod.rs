@@ -39,8 +39,8 @@ pub struct MapData {
 impl Default for MapData {
     fn default() -> Self {
         Self {
-            width: 8,
-            height: 10,
+            width: 12,
+            height: 5,
             cell_size: 64.0,
         }
     }

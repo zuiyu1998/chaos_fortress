@@ -50,7 +50,11 @@ pub fn spawn_level(
     enemy_assets: Res<enemy::assets::EnemyAssets>,
 ) {
     for mut transform in &mut camera_query {
-        transform.translation = Vec3::new(640.0, -360.0, 0.0);
+        transform.translation = Vec3::new(
+            map_data.cell_size + (map_data.width as f32 - 1.0) * map_data.cell_size / 2.0,
+            -((map_data.height as f32 - 1.0) * map_data.cell_size / 2.0),
+            0.0,
+        );
     }
     commands
         .spawn((
@@ -61,9 +65,9 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(level, &role_container, 0, 9, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
-            for column in 0..map_data.width {
-                enemy::enemy(level, &enemy_container, column, 2, map_data.cell_size, &enemy_assets, &template_assets);
+            role::role(level, &role_container, 0, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
+            for row in 0..map_data.height {
+                enemy::enemy(level, &enemy_container, 10, row, map_data.cell_size, &enemy_assets, &template_assets);
             }
             level.spawn((
                 Name::new("Gameplay Music"),

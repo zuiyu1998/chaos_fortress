@@ -14,6 +14,7 @@ use crate::asset_tracking::LoadResource;
 use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
 use crate::battle::battle;
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
+use crate::role::archer::ProjectileDamage;
 
 pub(super) mod assets;
 
@@ -55,12 +56,13 @@ pub fn enemy<'w>(
 ) -> Entity {
     let attrs = template_assets
         .get(&enemy_assets.basic_attributes)
-        .map(|t| t.build_attribute_set(&["hp", "max_hp", "armor"]))
+        .map(|t| t.build_attribute_set(&["hp", "max_hp", "armor", "attack"]))
         .unwrap_or_else(|| {
             let mut a = AttributeSet::new();
             a.insert("hp", Attribute::new(100.0));
             a.insert("max_hp", Attribute::new(100.0));
             a.insert("armor", Attribute::new(10.0));
+            a.insert("attack", Attribute::new(10.0));
             a
         });
     let ctx = EnemyBuilderContext {
@@ -88,6 +90,10 @@ impl EnemyBuilder for BasicEnemyBuilder {
         let cell_size = ctx.cell_size;
         let x = col as f32 * cell_size;
         let y = -(row as f32 * cell_size);
+        let projectile_damage = ctx.attributes
+            .get("attack")
+            .map(|a| a.value)
+            .ok_or_else(|| EnemyBuildError::BuildFailed("missing attribute 'attack'".into()))?;
         let mut entity = commands.spawn((
             Name::new(format!("Enemy ({col},{row})")),
             Enemy,
@@ -97,7 +103,8 @@ impl EnemyBuilder for BasicEnemyBuilder {
             RigidBody::Dynamic,
             Collider::circle(cell_size / 2.0),
             GamePhysicsLayer::enemy_layers(),
-            LinearVelocity(Vec2::new(0.0, -10.0)),
+            LinearVelocity(Vec2::new(-10.0, 0.0)),
+            ProjectileDamage(projectile_damage),
             battle(ctx.attributes),
         ));
         if let Some(parent) = ctx.parent {
