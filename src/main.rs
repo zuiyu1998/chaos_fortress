@@ -71,7 +71,7 @@ impl Plugin for AppPlugin {
             battle::BattlePlugin,
             common::CommonPlugin,
             enemy::EnemyPlugin,
-            level::plugin,
+            level::LevelPlugin,
             map::plugin,
             role::RolePlugin,
         ));

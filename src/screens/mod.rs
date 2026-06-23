@@ -1,7 +1,7 @@
 //! The game's main screen states and transitions between them.
 
 mod gameplay;
-pub(super) use gameplay::in_gameplay_and_unpaused;
+pub(super) use gameplay::in_gameplay_and_running;
 mod loading;
 mod splash;
 mod title;

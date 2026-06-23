@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 use crate::attribute::{Attribute, AttributeSet};
-use crate::screens::in_gameplay_and_unpaused;
+use crate::screens::in_gameplay_and_running;
 use crate::skill::cooldown::{reset_cooldown_timer, tick_cooldown_timer};
 use crate::skill::emit_skill_event;
 use crate::bullet::bullet;
@@ -40,7 +40,7 @@ impl Plugin for BattlePlugin {
         app.add_systems(
             Update,
             (tick_cooldown_timer, reset_cooldown_timer, emit_skill_event)
-                .run_if(in_gameplay_and_unpaused()),
+                .run_if(in_gameplay_and_running()),
         );
     }
 }

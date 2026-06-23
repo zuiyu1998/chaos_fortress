@@ -14,8 +14,13 @@ use crate::{
     state::Screen,
 };
 
-pub(super) fn plugin(app: &mut App) {
-    app.load_resource::<LevelAssets>();
+pub(super) struct LevelPlugin;
+
+impl Plugin for LevelPlugin {
+    fn build(&self, app: &mut App) {
+        app.load_resource::<LevelAssets>();
+        app.init_resource::<LevelState>();
+    }
 }
 
 #[derive(Resource, Asset, Clone, Reflect)]
@@ -31,6 +36,22 @@ impl FromWorld for LevelAssets {
         Self {
             music: assets.load("audio/music/Fluffing A Duck.ogg"),
         }
+    }
+}
+
+/// 关卡运行时数据资源。
+///
+/// 存储当前关卡的状态数据，包括单位的金钱等。
+#[derive(Resource, Debug, Clone, Reflect)]
+#[reflect(Resource)]
+pub struct LevelState {
+    /// 当前金钱数量。
+    pub money: u32,
+}
+
+impl Default for LevelState {
+    fn default() -> Self {
+        Self { money: 100 }
     }
 }
 
@@ -68,7 +89,7 @@ pub fn spawn_level(
             role::role(level, &role_container, 2, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
             level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             for row in 0..map_data.height {
-                enemy::enemy(level, &enemy_container, 3, row, map_data.cell_size, &enemy_assets, &template_assets);
+                enemy::enemy(level, &enemy_container, 10, row, map_data.cell_size, &enemy_assets, &template_assets);
             }
             level.spawn((
                 Name::new("Gameplay Music"),
