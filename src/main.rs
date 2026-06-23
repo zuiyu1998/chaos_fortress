@@ -9,6 +9,7 @@ mod audio;
 pub mod battle;
 pub mod bullet;
 pub mod common;
+pub mod dropped_items;
 mod enemy;
 mod level;
 mod map;
@@ -70,6 +71,9 @@ impl Plugin for AppPlugin {
             skill::SkillPlugin,
             battle::BattlePlugin,
             common::CommonPlugin,
+        ));
+        app.add_plugins((
+            dropped_items::DroppedItemPlugin,
             enemy::EnemyPlugin,
             level::LevelPlugin,
             map::plugin,

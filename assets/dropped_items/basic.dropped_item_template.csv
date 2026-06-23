@@ -1,0 +1,3 @@
+name,item_type,min_amount,max_amount,weight
+gold,gold,1,5,100.0
+
