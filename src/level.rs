@@ -6,13 +6,13 @@ use crate::{
     asset_tracking::LoadResource,
     attribute::AttributeTemplate,
     audio::music,
-    common,
-    enemy,
+    common, enemy,
     map::{self, MapData},
     role,
     skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer},
     state::Screen,
 };
+use bevy_lunex::prelude::*;
 
 pub(super) struct LevelPlugin;
 
@@ -20,6 +20,8 @@ impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
         app.load_resource::<LevelAssets>();
         app.init_resource::<LevelState>();
+        app.register_type::<MoneyDisplay>();
+        app.add_systems(Update, update_money_display);
     }
 }
 
@@ -55,12 +57,25 @@ impl Default for LevelState {
     }
 }
 
+/// 标记金钱显示 UI 实体的组件。
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+pub struct MoneyDisplay;
+
+/// 更新金钱显示文本。
+fn update_money_display(
+    level_state: Res<LevelState>,
+    mut money_text: Single<&mut Text2d, With<MoneyDisplay>>,
+) {
+    money_text.0 = format!("Gold: {}", level_state.money);
+}
+
 /// A system that spawns the main level.
 pub fn spawn_level(
     mut commands: Commands,
     level_assets: Res<LevelAssets>,
     map_data: Res<MapData>,
-    mut camera_query: Query<&mut Transform, With<Camera2d>>,
+    mut camera_query: Query<(Entity, &mut Transform), With<Camera2d>>,
     role_container: Res<role::RoleBuilderContainer>,
     role_assets: Res<role::assets::RoleAssets>,
     template_assets: Res<Assets<AttributeTemplate>>,
@@ -70,12 +85,14 @@ pub fn spawn_level(
     enemy_container: Res<enemy::EnemyBuilderContainer>,
     enemy_assets: Res<enemy::assets::EnemyAssets>,
 ) {
-    for mut transform in &mut camera_query {
+    let mut camera_entity = None;
+    for (entity, mut transform) in &mut camera_query {
         transform.translation = Vec3::new(
             map_data.cell_size + (map_data.width as f32 - 1.0) * map_data.cell_size / 2.0,
             -((map_data.height as f32 - 1.0) * map_data.cell_size / 2.0),
             0.0,
         );
+        camera_entity = Some(entity);
     }
     commands
         .spawn((
@@ -86,15 +103,56 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(level, &role_container, 2, 4, &role_assets, &template_assets, &skill_container, &skill_effect_container, &skill_assets);
+            role::role(
+                level,
+                &role_container,
+                2,
+                4,
+                &role_assets,
+                &template_assets,
+                &skill_container,
+                &skill_effect_container,
+                &skill_assets,
+            );
             level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             for row in 0..map_data.height {
-                enemy::enemy(level, &enemy_container, 10, row, map_data.cell_size, &enemy_assets, &template_assets);
+                enemy::enemy(
+                    level,
+                    &enemy_container,
+                    10,
+                    row,
+                    map_data.cell_size,
+                    &enemy_assets,
+                    &template_assets,
+                );
             }
             level.spawn((
                 Name::new("Gameplay Music"),
                 music(level_assets.music.clone()),
             ));
-            level.spawn(common::ui_root_2d());
         });
+    if let Some(camera) = camera_entity {
+        commands.entity(camera).with_children(|ui_root| {
+            ui_root
+                .spawn((common::ui_root_2d(), DespawnOnExit(Screen::Gameplay)))
+                .with_children(|ui| {
+                    ui.spawn((
+                        Name::new("Money Display"),
+                        UiLayout::window()
+                            .pos((Ab(0.0), Ab(0.0)))
+                            .size((Ab(200.0), Ab(40.0)))
+                            .anchor(Anchor::TOP_LEFT)
+                            .pack(),
+                        UiTextSize::from(Ab(24.0)),
+                        Text2d::new("Gold: 100"),
+                        TextFont {
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(1.0, 0.84, 0.0)),
+                        MoneyDisplay,
+                    ));
+                });
+        });
+    }
 }

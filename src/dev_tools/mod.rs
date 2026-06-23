@@ -2,7 +2,7 @@
 
 pub mod debug_physics;
 
-use avian2d::diagnostics::{ui::PhysicsDiagnosticsUiPlugin, PhysicsDiagnosticsPlugin};
+// use avian2d::diagnostics::{ui::PhysicsDiagnosticsUiPlugin, PhysicsDiagnosticsPlugin};
 use bevy::{
     dev_tools::states::log_transitions, input::common_conditions::input_just_pressed, prelude::*,
 };
@@ -19,7 +19,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins((EguiPlugin::default(), WorldInspectorPlugin::new()));
 
     // Add physics diagnostics for profiling and debugging.
-    app.add_plugins((PhysicsDiagnosticsPlugin, PhysicsDiagnosticsUiPlugin));
+    // app.add_plugins((PhysicsDiagnosticsPlugin, PhysicsDiagnosticsUiPlugin));
 
     // Add physics debug rendering (collider shapes, etc.).
     app.add_plugins(debug_physics::PhysicsDebugPlugin);
