@@ -7,10 +7,10 @@ use avian2d::prelude::LinearVelocity;
 
 use crate::enemy::Enemy;
 use crate::theme::widget;
-use crate::{level::spawn_level, state::{Finish, Menu, Pause, Screen}};
+use crate::{level::spawn_level, state::{Finish, InGame, Menu, Pause, Screen}};
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(Screen::Gameplay), spawn_level);
+    app.add_systems(OnEnter(Screen::Gameplay), (spawn_level, set_ingame_preparation));
 
     // When the game is settled, stop all enemies and show settlement UI.
     app.add_systems(OnEnter(Finish(true)), (stop_enemies, spawn_settlement_ui));
@@ -31,7 +31,7 @@ pub(super) fn plugin(app: &mut App) {
             ),
         ),
     );
-    app.add_systems(OnExit(Screen::Gameplay), (close_menu, unpause));
+    app.add_systems(OnExit(Screen::Gameplay), (close_menu, unpause, set_ingame_none));
     app.add_systems(
         OnEnter(Menu::None),
         unpause.run_if(in_state(Screen::Gameplay)),
@@ -44,6 +44,16 @@ pub fn in_gameplay_and_running() -> impl SystemCondition<()> {
     in_state(Screen::Gameplay)
         .and(in_state(Pause(false)))
         .and(in_state(Finish(false)))
+}
+
+/// Sets [`InGame`] to [`Preparation`] when entering gameplay.
+fn set_ingame_preparation(mut next_ingame: ResMut<NextState<InGame>>) {
+    next_ingame.set(InGame::Preparation);
+}
+
+/// Sets [`InGame`] to [`None`] when leaving gameplay.
+fn set_ingame_none(mut next_ingame: ResMut<NextState<InGame>>) {
+    next_ingame.set(InGame::None);
 }
 
 fn unpause(mut next_pause: ResMut<NextState<Pause>>) {

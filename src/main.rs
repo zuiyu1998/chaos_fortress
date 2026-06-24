@@ -82,6 +82,7 @@ impl Plugin for AppPlugin {
         app.add_plugins((
             #[cfg(feature = "dev")]
             dev_tools::plugin,
+            state::StatePlugin,
             menus::plugin,
             screens::plugin,
             theme::plugin,
@@ -100,11 +101,6 @@ impl Plugin for AppPlugin {
             )
                 .chain(),
         );
-
-        // Set up the `Pause` and `Finish` states.
-        app.init_state::<state::Pause>();
-        app.init_state::<state::Finish>();
-        app.configure_sets(Update, state::PausableSystems.run_if(in_state(state::Pause(false))));
 
         // Spawn the main camera.
         app.add_systems(Startup, spawn_camera);

@@ -4,12 +4,9 @@ use bevy::prelude::*;
 
 use crate::{
     asset_tracking::LoadResource,
-    attribute::AttributeTemplate,
     audio::music,
-    common, enemy,
+    common,
     map::{self, MapData},
-    role,
-    skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer},
     state::Screen,
 };
 use bevy_lunex::prelude::*;
@@ -76,14 +73,6 @@ pub fn spawn_level(
     level_assets: Res<LevelAssets>,
     map_data: Res<MapData>,
     mut camera_query: Query<(Entity, &mut Transform), With<Camera2d>>,
-    role_container: Res<role::RoleBuilderContainer>,
-    role_assets: Res<role::assets::RoleAssets>,
-    template_assets: Res<Assets<AttributeTemplate>>,
-    skill_container: Res<SkillFeatureBuilderContainer>,
-    skill_effect_container: Res<SkillEffectBuilderContainer>,
-    skill_assets: Res<Assets<SkillDefinition>>,
-    enemy_container: Res<enemy::EnemyBuilderContainer>,
-    enemy_assets: Res<enemy::assets::EnemyAssets>,
 ) {
     let mut camera_entity = None;
     for (entity, mut transform) in &mut camera_query {
@@ -103,29 +92,6 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
-            role::role(
-                level,
-                &role_container,
-                2,
-                4,
-                &role_assets,
-                &template_assets,
-                &skill_container,
-                &skill_effect_container,
-                &skill_assets,
-            );
-            level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
-            for row in 0..map_data.height {
-                enemy::enemy(
-                    level,
-                    &enemy_container,
-                    10,
-                    row,
-                    map_data.cell_size,
-                    &enemy_assets,
-                    &template_assets,
-                );
-            }
             level.spawn((
                 Name::new("Gameplay Music"),
                 music(level_assets.music.clone()),
