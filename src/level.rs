@@ -7,10 +7,15 @@ use crate::{
     asset_tracking::LoadResource,
     audio::music,
     common, enemy,
-    map::{self, MapData},
+    enemy::spawner::{EnemySpawner, SpawnArea, SpawnEntry},
+    map::{self, Map, MapData},
     state::{InGame, Screen},
 };
 use bevy_lunex::prelude::*;
+use rand::Rng;
+
+use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
+use crate::enemy::{assets, EnemyBuilderContainer, EnemyBuilderContext, EnemySystems};
 
 pub(super) struct LevelPlugin;
 
@@ -20,6 +25,7 @@ impl Plugin for LevelPlugin {
         app.init_resource::<LevelState>();
         app.register_type::<MoneyDisplay>();
         app.add_systems(Update, update_money_display);
+        app.add_systems(Update, tick_enemy_spawner.in_set(EnemySystems));
     }
 }
 
@@ -156,6 +162,73 @@ fn open_shop(_: On<Pointer<Click>>) {
     info!("Shop");
 }
 
+/// 驱动 [`EnemySpawner`] 生成敌人的 System (`tick_enemy_spawner`)。
+///
+/// 在 `Update` 阶段运行，每帧递减 `spawn_timer`；归零时：
+///
+/// 1. 在 [`SpawnArea`](SpawnArea) 内随机选取 `(col, row)`。
+/// 2. 从 [`entries`](EnemySpawner::entries) 中随机选取一个
+///    [`SpawnEntry`](SpawnEntry)。
+/// 3. 为该类型构造 [`EnemyBuilderContext`]，通过
+///    [`EnemyBuilderContainer`] 生成敌人实体。
+/// 4. 将 `spawn_timer` 重置为该 entry 的 `interval`。
+pub fn tick_enemy_spawner(
+    time: Res<Time>,
+    mut spawner: ResMut<EnemySpawner>,
+    container: Res<EnemyBuilderContainer>,
+    enemy_assets: Res<assets::EnemyAssets>,
+    template_assets: Res<Assets<AttributeTemplate>>,
+    mut commands: Commands,
+    map_entity: Single<Entity, With<Map>>,
+) {
+    let dt = time.delta_secs();
+    spawner.spawn_timer -= dt;
+
+    if spawner.spawn_timer > 0.0 {
+        return;
+    }
+
+    let area = &spawner.spawn_area;
+    let mut rng = rand::rng();
+
+    // 在固定区域内随机选取生成坐标
+    let col = rng.random_range(area.col_min..=area.col_max);
+    let row = rng.random_range(area.row_min..=area.row_max);
+
+    // 随机选取一个 entry 生成敌人
+    let entry = &spawner.entries[rng.random_range(0..spawner.entries.len())];
+
+    // 构造基础属性集
+    let attrs = template_assets
+        .get(&enemy_assets.basic_attributes)
+        .map(|t| t.build_attribute_set(&["hp", "max_hp", "armor", "attack"]))
+        .unwrap_or_else(|| {
+            let mut a = AttributeSet::new();
+            a.insert("hp", Attribute::new(100.0));
+            a.insert("max_hp", Attribute::new(100.0));
+            a.insert("armor", Attribute::new(10.0));
+            a.insert("attack", Attribute::new(10.0));
+            a
+        });
+
+    let ctx = EnemyBuilderContext {
+        position: (col, row),
+        cell_size: 64.0,
+        parent: Some(*map_entity),
+        attributes: attrs,
+    };
+
+    let mut cmds = commands.reborrow();
+    if let Err(e) = container.build(&entry.builder_name, &mut cmds, ctx) {
+        error!(
+            "EnemySpawner: failed to build '{}': {e}",
+            entry.builder_name
+        );
+    }
+
+    spawner.spawn_timer = entry.interval;
+}
+
 /// A system that spawns the main level.
 pub fn spawn_level(
     mut commands: Commands,
@@ -172,14 +245,33 @@ pub fn spawn_level(
         );
         camera_entity = Some(entity);
     }
-    commands
+
+    let level_entity = commands
         .spawn((
             Name::new("Level"),
             Transform::from_xyz(map_data.cell_size, 0.0, 0.0),
             Visibility::default(),
             DespawnOnExit(Screen::Gameplay),
         ))
-        .with_children(|level| {
+        .id();
+
+    commands.insert_resource(EnemySpawner {
+        spawn_area: SpawnArea {
+            col_min: 13,
+            col_max: 15,
+            row_min: 0,
+            row_max: 4,
+        },
+        entries: vec![SpawnEntry {
+            builder_name: "basic".into(),
+            count: 10,
+            interval: 0.6,
+        }],
+        spawn_timer: 1.0,
+        ..default()
+    });
+
+    commands.entity(level_entity).with_children(|level| {
             map::map(level, &map_data);
             level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             level.spawn((

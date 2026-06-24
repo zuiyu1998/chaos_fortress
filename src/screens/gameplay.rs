@@ -5,12 +5,18 @@ use bevy::ecs::schedule::SystemCondition;
 
 use avian2d::prelude::LinearVelocity;
 
-use crate::enemy::Enemy;
+use crate::enemy::{Enemy, EnemySystems};
 use crate::theme::widget;
 use crate::{level::spawn_level, state::{Finish, InGame, Menu, Pause, Screen}};
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Gameplay), (spawn_level, set_ingame_preparation));
+
+    app.configure_sets(
+        Update,
+        EnemySystems
+            .run_if(in_gameplay_and_running()),
+    );
 
     // When the game is settled, stop all enemies and show settlement UI.
     app.add_systems(OnEnter(Finish(true)), (stop_enemies, spawn_settlement_ui));

@@ -22,6 +22,7 @@ use crate::role::archer::ProjectileDamage;
 use crate::state::Finish;
 
 pub(super) mod assets;
+pub(super) mod spawner;
 
 /// Entry plugin for the enemy module.
 ///
@@ -56,17 +57,24 @@ pub(super) mod assets;
 ///    detects the collision and logs `"游戏已结算"`.
 pub(super) struct EnemyPlugin;
 
+/// 敌人系统的 System Set，供 gameplay 模块配置运行条件。
+#[derive(SystemSet, Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct EnemySystems;
+
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Enemy>();
         app.register_type::<Base>();
         app.insert_resource(EnemyBuilderContainer::new());
+        app.init_resource::<spawner::EnemySpawner>();
         app.load_resource::<assets::EnemyAssets>();
         let mut container = app.world_mut().resource_mut::<EnemyBuilderContainer>();
         container.register("basic", BasicEnemyBuilder);
 
-        app.add_systems(Update, check_enemy_enters_base);
-        app.add_systems(Update, drop_gold_on_enemy_death);
+        app.add_systems(Update, (
+            check_enemy_enters_base,
+            drop_gold_on_enemy_death,
+        ).in_set(EnemySystems));
     }
 }
 
