@@ -15,8 +15,9 @@ use bevy::prelude::*;
 
 use crate::asset_tracking::LoadResource;
 use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
-use crate::battle::battle;
+use crate::battle::{battle, DeathInBattle};
 use crate::common::{GamePhysicsLayer, VisualDisplayLayer};
+use crate::dropped_items::gold_drop;
 use crate::role::archer::ProjectileDamage;
 use crate::state::Finish;
 
@@ -65,6 +66,23 @@ impl Plugin for EnemyPlugin {
         container.register("basic", BasicEnemyBuilder);
 
         app.add_systems(Update, check_enemy_enters_base);
+        app.add_systems(Update, drop_gold_on_enemy_death);
+    }
+}
+
+/// Drops gold when an enemy dies.
+///
+/// Reads [`DeathInBattle`] messages; when the dead entity is an enemy,
+/// spawns a gold drop via [`gold_drop`].
+fn drop_gold_on_enemy_death(
+    mut events: MessageReader<DeathInBattle>,
+    enemies: Query<&Enemy>,
+    mut commands: Commands,
+) {
+    for event in events.read() {
+        if enemies.contains(event.entity) {
+            commands.spawn(gold_drop(5));
+        }
     }
 }
 

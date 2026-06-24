@@ -23,24 +23,40 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::asset_tracking::LoadResource;
+use crate::level::LevelState;
 
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
 
 /// Plugin that registers [`DroppedItemDefinition`], [`DroppedItemTemplate`],
-/// and [`loader::DroppedItemTemplateLoader`] with Bevy's type registry,
-/// initialises [`DroppedItemTemplate`] as both a [`Resource`] and an
-/// [`Asset`](bevy::asset::Asset), and registers the CSV asset loader.
+/// [`GoldDroppedItem`], and [`loader::DroppedItemTemplateLoader`] with Bevy's
+/// type registry, initialises [`DroppedItemTemplate`] as both a [`Resource`]
+/// and an [`Asset`](bevy::asset::Asset), and registers the CSV asset loader.
 pub(super) struct DroppedItemPlugin;
 
 impl Plugin for DroppedItemPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<DroppedItemDefinition>();
         app.register_type::<DroppedItemTemplate>();
+        app.register_type::<GoldDroppedItem>();
         app.init_asset::<DroppedItemTemplate>();
         app.register_asset_loader(loader::DroppedItemTemplateLoader);
         app.load_resource::<DroppedItemTemplate>();
+        app.add_systems(Update, collect_gold_drops);
+    }
+}
+
+/// Collects all gold drop entities each frame, adding their gold amount to
+/// [`LevelState::money`] and despawning the entity.
+fn collect_gold_drops(
+    mut level_state: ResMut<LevelState>,
+    query: Query<(Entity, &GoldDroppedItem)>,
+    mut commands: Commands,
+) {
+    for (entity, gold) in &query {
+        level_state.money += gold.amount;
+        commands.entity(entity).despawn();
     }
 }
 
@@ -67,6 +83,33 @@ pub struct DroppedItemDefinition {
     pub max_amount: u32,
     /// Drop weight — higher values mean higher drop probability.
     pub weight: f32,
+}
+
+// ---------------------------------------------------------------------------
+// GoldDroppedItem
+// ---------------------------------------------------------------------------
+
+/// A component that marks an entity as a pickable gold drop item.
+///
+/// When a character collides with this entity, the gold amount is added
+/// to [`LevelState`](crate::level::LevelState) and the entity is despawned.
+#[derive(Component, Debug, Clone, PartialEq, Reflect)]
+#[reflect(Component)]
+pub struct GoldDroppedItem {
+    /// The amount of gold this drop contains.
+    pub amount: u32,
+}
+
+/// Spawn a gold drop entity.
+///
+/// Returns a bundle with a [`Name`] and a [`GoldDroppedItem`] component.
+/// The caller is responsible for adding the necessary visual, transform,
+/// and collision components before spawning.
+pub fn gold_drop(amount: u32) -> impl Bundle {
+    (
+        Name::new(format!("Gold ({amount})")),
+        GoldDroppedItem { amount },
+    )
 }
 
 // ---------------------------------------------------------------------------
