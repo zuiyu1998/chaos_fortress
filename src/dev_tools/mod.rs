@@ -8,6 +8,7 @@ use bevy::{
 };
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+// use bevy_lunex::UiLunexDebugPlugin;
 
 use crate::state::Screen;
 
@@ -23,6 +24,9 @@ pub(super) fn plugin(app: &mut App) {
 
     // Add physics debug rendering (collider shapes, etc.).
     app.add_plugins(debug_physics::PhysicsDebugPlugin);
+
+    // Add bevy_lunex debug overlay.
+    // app.add_plugins(UiLunexDebugPlugin::<0, 0>);
 
     // Toggle the debug overlay for UI.
     app.add_systems(

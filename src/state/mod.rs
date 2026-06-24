@@ -39,6 +39,8 @@ pub enum InGame {
     None,
     /// Preparing for battle.
     Preparation,
+    /// Actively fighting.
+    Battle,
 }
 
 /// A system set for systems that shouldn't run while the game is paused.

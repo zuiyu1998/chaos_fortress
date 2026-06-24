@@ -10,7 +10,7 @@ pub mod battle;
 pub mod bullet;
 pub mod common;
 pub mod dropped_items;
-mod enemy;
+pub mod enemy;
 mod level;
 mod map;
 pub mod role;

@@ -1,13 +1,14 @@
 //! Spawn the main level.
 
 use bevy::prelude::*;
+use bevy::ecs::hierarchy::ChildSpawnerCommands;
 
 use crate::{
     asset_tracking::LoadResource,
     audio::music,
-    common,
+    common, enemy,
     map::{self, MapData},
-    state::Screen,
+    state::{InGame, Screen},
 };
 use bevy_lunex::prelude::*;
 
@@ -67,6 +68,94 @@ fn update_money_display(
     money_text.0 = format!("Gold: {}", level_state.money);
 }
 
+/// Spawn the level HUD: money display at top-left and action buttons at
+/// bottom-right.
+///
+/// Spawns children under the given [`ChildSpawnerCommands`] builder.
+pub fn level_ui(parent: &mut ChildSpawnerCommands) {
+    // Money display (top-left)
+    parent.spawn((
+        Name::new("Money Display"),
+        UiLayout::window()
+            .pos((Ab(0.0), Ab(0.0)))
+            .size((Ab(200.0), Ab(40.0)))
+            .anchor(Anchor::TOP_LEFT)
+            .pack(),
+        UiTextSize::from(Ab(24.0)),
+        Text2d::new("Gold: 100"),
+        TextFont {
+            font_size: 24.0,
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 0.84, 0.0)),
+        MoneyDisplay,
+    ));
+
+    // Action buttons at bottom-right.
+    parent
+        .spawn((
+            Name::new("HUD Buttons"),
+            UiLayout::window()
+                .pos((Rw(75.0), Rh(92.0)))
+                .size((Ab(420.0), Ab(80.0)))
+                .anchor(Anchor::TOP_LEFT)
+                .pack(),
+        ))
+        .with_children(|buttons| {
+            buttons.spawn((
+                Name::new("Battle"),
+                Sprite::from_color(Color::srgb(0.3, 0.5, 0.8), Vec2::new(200.0, 80.0)),
+                UiLayout::window()
+                    .pos((Ab(0.0), Ab(0.0)))
+                    .size((Ab(200.0), Ab(80.0)))
+                    .anchor(Anchor::TOP_LEFT)
+                    .pack(),
+                UiTextSize::from(Ab(24.0)),
+                Text2d::new("Battle"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 1.0, 1.0)),
+            ))
+            .observe(start_battle);
+
+            buttons.spawn((
+                Name::new("Shop"),
+                Sprite::from_color(Color::srgb(0.3, 0.5, 0.8), Vec2::new(200.0, 80.0)),
+                UiLayout::window()
+                    .pos((Ab(210.0), Ab(0.0)))
+                    .size((Ab(200.0), Ab(80.0)))
+                    .anchor(Anchor::TOP_LEFT)
+                    .pack(),
+                UiTextSize::from(Ab(24.0)),
+                Text2d::new("Shop"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(1.0, 1.0, 1.0)),
+            ))
+            .observe(open_shop);
+        });
+}
+
+/// Placeholder action for the "Battle" button.
+fn start_battle(
+    trigger: On<Pointer<Click>>,
+    mut next_ingame: ResMut<NextState<InGame>>,
+    mut commands: Commands,
+) {
+    next_ingame.set(InGame::Battle);
+    commands.entity(trigger.event_target()).insert(Visibility::Hidden);
+    info!("Battle");
+}
+
+/// Placeholder action for the "Shop" button.
+fn open_shop(_: On<Pointer<Click>>) {
+    info!("Shop");
+}
+
 /// A system that spawns the main level.
 pub fn spawn_level(
     mut commands: Commands,
@@ -92,6 +181,7 @@ pub fn spawn_level(
         ))
         .with_children(|level| {
             map::map(level, &map_data);
+            level.spawn(enemy::base(0, 0, map_data.cell_size, 2, 5));
             level.spawn((
                 Name::new("Gameplay Music"),
                 music(level_assets.music.clone()),
@@ -102,22 +192,7 @@ pub fn spawn_level(
             ui_root
                 .spawn((common::ui_root_2d(), DespawnOnExit(Screen::Gameplay)))
                 .with_children(|ui| {
-                    ui.spawn((
-                        Name::new("Money Display"),
-                        UiLayout::window()
-                            .pos((Ab(0.0), Ab(0.0)))
-                            .size((Ab(200.0), Ab(40.0)))
-                            .anchor(Anchor::TOP_LEFT)
-                            .pack(),
-                        UiTextSize::from(Ab(24.0)),
-                        Text2d::new("Gold: 100"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(1.0, 0.84, 0.0)),
-                        MoneyDisplay,
-                    ));
+                    level_ui(ui);
                 });
         });
     }
