@@ -15,7 +15,7 @@ use crate::common::{
 };
 use crate::state::{Pause, Screen};
 
-use super::{Archer, BuildError, Role, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
+use super::{Archer, BuildError, Role, RoleActive, RoleBuilder, RoleBuilderContainer, RoleBuilderContext};
 use crate::skill::{skill, SkillActive, SkillTarget};
 
 /// Marker component inserted on the archer entity while in Idle state.
@@ -211,7 +211,7 @@ impl RoleBuilder for ArcherRoleBuilder {
 /// [`SkillTarget`] to find the skill child.
 pub fn add_skill_active_when_combat(
     combat_states: Query<&Active, (With<StateComponent<ArcherCombat>>, Added<Active>)>,
-    archers: Query<&SkillTarget, With<Archer>>,
+    archers: Query<&SkillTarget, (With<Archer>, With<RoleActive>)>,
     mut commands: Commands,
 ) {
     for active in &combat_states {

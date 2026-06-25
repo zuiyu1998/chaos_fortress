@@ -24,6 +24,7 @@ pub(super) struct RolePlugin;
 impl Plugin for RolePlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Role>();
+        app.register_type::<RoleActive>();
         app.insert_resource(RoleBuilderContainer::new());
         app.load_resource::<assets::RoleAssets>();
         app.add_plugins(archer::ArcherPlugin);
@@ -48,6 +49,17 @@ impl Plugin for RolePlugin {
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
 #[reflect(Component)]
 pub struct Role;
+
+/// A marker component indicating that a role entity is currently active
+/// on the battlefield.
+///
+/// Added when a role is deployed onto a bench cell, and removed when
+/// the role is defeated or otherwise leaves the field.
+/// Systems that should only process active roles can use
+/// `Query<..., With<RoleActive>>`.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct RoleActive;
 
 /// A component that marks an entity as an "archer" (ranged role variant).
 ///
