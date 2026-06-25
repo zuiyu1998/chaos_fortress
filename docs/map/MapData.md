@@ -29,3 +29,8 @@ impl Default for MapData {
 - `MapData` 作为全局资源，在初始化 `Map` 实体时被读取。
 - 根据 `width` × `height` 和 `cell_size`，在地图实体下生成对应的子实体（如地形格子、网格线等）。
 - 该资源贯穿整个游戏生命周期，在需要重新生成地图时亦可更新。
+
+## 相关文档
+
+- [`Map`](./Map.md)：地图根实体标记组件
+- [`MapSystem`](./MapSystem.md)：地图系统文档（布局、工具函数、地形系统）

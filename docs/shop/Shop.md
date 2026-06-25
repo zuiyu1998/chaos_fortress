@@ -55,9 +55,9 @@ pub struct Shop(pub bool);
 
 ## 相关文档
 
+- [`RoleShopItem`](./RoleShopItem.md)：备战区角色生成组件，购买角色后挂载到备战区格子实体上
 - [`ShopItem`](./ShopItem.md)：商店出售道具的定义
 - [`ShopItems`](./ShopItem.md#预期容器)：商店道具列表资源
-- [`PurchaseEvent`](./ShopItem.md#purchaseevent)：购买事件消息
 - [`Pause`](../state/Pause.md)：暂停状态，`Shop` 的设计参考
 - [`PausableSystems`](../state/PausableSystems.md)：受暂停状态控制的系统集
 
