@@ -8,7 +8,7 @@ use crate::{
     audio::music,
     common, enemy,
     enemy::spawner::{EnemySpawner, SpawnArea, SpawnEntry},
-    map::{self, Map, MapData},
+    map::{self, MapData},
     shop::Shop,
     state::{InGame, Screen},
 };
@@ -20,8 +20,14 @@ use crate::enemy::{assets, EnemyBuilderContainer, EnemyBuilderContext, EnemySyst
 
 pub(super) struct LevelPlugin;
 
+/// A marker component that identifies the level root entity.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[reflect(Component)]
+pub struct Level;
+
 impl Plugin for LevelPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<Level>();
         app.load_resource::<LevelAssets>();
         app.init_resource::<LevelState>();
         app.register_type::<MoneyDisplay>();
@@ -181,7 +187,7 @@ pub fn tick_enemy_spawner(
     enemy_assets: Res<assets::EnemyAssets>,
     template_assets: Res<Assets<AttributeTemplate>>,
     mut commands: Commands,
-    map_entity: Single<Entity, With<Map>>,
+    level_entity: Single<Entity, With<Level>>,
 ) {
     let dt = time.delta_secs();
     spawner.spawn_timer -= dt;
@@ -216,7 +222,7 @@ pub fn tick_enemy_spawner(
     let ctx = EnemyBuilderContext {
         position: (col, row),
         cell_size: 64.0,
-        parent: Some(*map_entity),
+        parent: Some(*level_entity),
         attributes: attrs,
     };
 
@@ -251,7 +257,8 @@ pub fn spawn_level(
     let level_entity = commands
         .spawn((
             Name::new("Level"),
-            Transform::from_xyz(map_data.cell_size, 0.0, 0.0),
+            Level,
+            Transform::from_xyz(0.0, 0.0, 0.0),
             Visibility::default(),
             DespawnOnExit(Screen::Gameplay),
         ))
@@ -259,8 +266,8 @@ pub fn spawn_level(
 
     commands.insert_resource(EnemySpawner {
         spawn_area: SpawnArea {
-            col_min: 13,
-            col_max: 15,
+            col_min: 12,
+            col_max: 14,
             row_min: 0,
             row_max: 4,
         },
@@ -272,6 +279,8 @@ pub fn spawn_level(
         spawn_timer: 1.0,
         ..default()
     });
+
+    commands.insert_resource(LevelState { money: 10000 });
 
     commands.entity(level_entity).with_children(|level| {
             map::map(level, &map_data);

@@ -131,9 +131,9 @@ pub fn setup_state_machine(machine: Entity, commands: &mut Commands) {
 }
 
 impl RoleBuilder for ArcherRoleBuilder {
-    fn build<'w, 's, 'a>(
+    fn build<'b, 'w, 's, 'a>(
         &self,
-        commands: &'w mut Commands<'w, 's>,
+        commands: &'b mut Commands<'w, 's>,
         ctx: RoleBuilderContext<'a>,
     ) -> Result<Entity, BuildError> {
         let (col, row) = ctx.position;

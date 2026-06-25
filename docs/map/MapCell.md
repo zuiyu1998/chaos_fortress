@@ -85,7 +85,7 @@ fn is_combat_zone(cell: &MapCell) -> bool {
 
 - **`Map`**（[`./Map.md`](./Map.md)）：地图根实体标记组件。`MapCell` 是 `Map` 的子实体上的组件。
 - **`BenchCell`**（[`./BenchCell.md`](./BenchCell.md)）：备战区格子标记组件，标识格子所属区域。
-- **`MapCellData`**（[`./MapCellData.md`](./MapCellData.md)）：地图格子的角色实体组件，记录格子上的角色。
+- **`MapCellData`**（[`./MapCellData.md`](./MapCellData.md)）：地图格子的角色实体数据，存储于 `MapState` 资源中。
 - **`MapData`**（[`./MapData.md`](./MapData.md)）：地图规格资源，定义 `width`（12）和 `height`（5），决定了 `MapCell.x` 和 `MapCell.y` 的取值范围。
 - **`MapSystem`**（[`./MapSystem.md`](./MapSystem.md)）：地图系统文档，提供了格子坐标与像素坐标互转的工具函数。
 

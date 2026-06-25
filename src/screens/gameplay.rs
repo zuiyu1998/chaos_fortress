@@ -7,6 +7,7 @@ use avian2d::prelude::LinearVelocity;
 
 use crate::enemy::{Enemy, EnemySystems};
 use crate::theme::widget;
+use crate::shop::Shop;
 use crate::{level::spawn_level, state::{Finish, InGame, Menu, Pause, Screen}};
 
 pub(super) fn plugin(app: &mut App) {
@@ -112,7 +113,8 @@ fn spawn_settlement_ui(mut commands: Commands) {
     ));
 }
 
-fn quit_to_title(_: On<Pointer<Click>>, mut next_screen: ResMut<NextState<Screen>>, mut next_finish: ResMut<NextState<Finish>>) {
+fn quit_to_title(_: On<Pointer<Click>>, mut next_screen: ResMut<NextState<Screen>>, mut next_shop: ResMut<NextState<Shop>>, mut next_finish: ResMut<NextState<Finish>>) {
     next_screen.set(Screen::Title);
+    next_shop.set(Shop(false));
     next_finish.set(Finish(false));
 }

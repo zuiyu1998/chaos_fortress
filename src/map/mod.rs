@@ -4,21 +4,24 @@
 
 use bevy::prelude::*;
 use bevy::ecs::hierarchy::ChildSpawnerCommands;
+use std::collections::HashMap;
+
 use crate::common::VisualDisplayLayer;
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Map>();
     app.register_type::<MapCell>();
-    app.register_type::<MapCellData>();
     app.register_type::<BenchCell>();
     app.init_resource::<MapData>();
+    app.init_resource::<MapState>();
+    app.add_systems(Update, sync_map_state_on_add);
 }
 
 /// A component storing the grid coordinates of a map cell entity.
 ///
 /// Every cell child under the [`Map`] entity carries this component.
 /// `x` is the column (0~11), `y` is the row (0~4).
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Default, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect)]
 #[reflect(Component)]
 pub struct MapCell {
     /// Column (0~11), increasing to the right.
@@ -27,11 +30,11 @@ pub struct MapCell {
     pub y: u32,
 }
 
-/// A component storing the optional role entity standing on a map cell.
+/// Data record for a map cell, storing the optional role entity on it.
 ///
-/// `role` is `Some(entity)` when a role occupies this cell, `None` when free.
-/// Added automatically during cell initialization with a default of `None`.
-#[derive(Component, Debug, Clone, Copy, Reflect)]
+/// Used inside [`MapState`] to track which role (if any) occupies each cell.
+/// This is a plain data struct, not a Component — it lives in the [`MapState`] resource.
+#[derive(Debug, Clone, Copy, Default, Reflect)]
 pub struct MapCellData {
     /// The role entity on this cell, if any.
     pub role: Option<Entity>,
@@ -80,6 +83,33 @@ impl Default for MapData {
     }
 }
 
+/// A resource that indexes all map cells' [`MapCellData`] by grid coordinates.
+///
+/// Provides O(1) coordinate → cell data lookups without entity queries.
+/// Automatically populated by [`sync_map_state_on_add`] whenever a [`MapCell`]
+/// component is added to an entity.
+#[derive(Resource, Debug, Clone, Default, Reflect)]
+#[reflect(Resource)]
+pub struct MapState {
+    /// Cell data indexed by [`MapCell`] coordinate.
+    pub cells: HashMap<MapCell, MapCellData>,
+}
+
+/// System that listens for newly added [`MapCell`] components and syncs
+/// them into [`MapState`].
+///
+/// Uses `Added<MapCell>` so it only processes each cell once, right after
+/// it is spawned. This replaces the need for manual initialization in
+/// [`crate::level::spawn_level`].
+pub fn sync_map_state_on_add(
+    mut map_state: ResMut<MapState>,
+    cells: Query<&MapCell, Added<MapCell>>,
+) {
+    for cell in &cells {
+        map_state.cells.entry(*cell).or_default();
+    }
+}
+
 /// Spawn the map entity along with grid cells.
 ///
 /// Spawns a [`Map`] entity under the given `parent` builder, then adds
@@ -123,7 +153,6 @@ pub fn map_cell(cell_size: f32, column: u32, row: u32, sprite: Sprite) -> impl B
     (
         Name::new(format!("MapCell ({column}, {row})")),
         MapCell { x: column, y: row },
-        MapCellData { role: None },
         sprite,
         Transform::from_xyz(x, y, VisualDisplayLayer::Terrain.z_value()),
         Visibility::default(),

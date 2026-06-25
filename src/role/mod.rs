@@ -162,9 +162,9 @@ impl std::error::Error for BuildError {}
 /// a `&mut Commands` and a [`RoleBuilderContext`].
 pub trait RoleBuilder: Send + Sync {
     /// Build a role entity and return its `Entity` ID on success.
-    fn build<'w, 's, 'a>(
+    fn build<'b, 'w, 's, 'a>(
         &self,
-        commands: &'w mut Commands<'w, 's>,
+        commands: &'b mut Commands<'w, 's>,
         ctx: RoleBuilderContext<'a>,
     ) -> Result<Entity, BuildError>;
 }
@@ -177,7 +177,7 @@ pub trait RoleBuilder: Send + Sync {
 pub struct RoleBuilderContainer {
     builders: HashMap<
         String,
-        Box<dyn for<'w, 's, 'a> Fn(&'w mut Commands<'w, 's>, RoleBuilderContext<'a>) -> Result<Entity, BuildError> + Send + Sync>,
+        Box<dyn for<'b, 'w, 's, 'a> Fn(&'b mut Commands<'w, 's>, RoleBuilderContext<'a>) -> Result<Entity, BuildError> + Send + Sync>,
     >,
 }
 
@@ -205,10 +205,10 @@ impl RoleBuilderContainer {
     ///
     /// Returns `Err(BuildError::MissingBuilder)` if no builder is registered
     /// for `name`, or forwards errors from the builder itself.
-    pub fn build<'w, 's, 'a>(
+    pub fn build<'b, 'w, 's, 'a>(
         &self,
         name: &str,
-        commands: &'w mut Commands<'w, 's>,
+        commands: &'b mut Commands<'w, 's>,
         ctx: RoleBuilderContext<'a>,
     ) -> Result<Entity, BuildError> {
         self.builders

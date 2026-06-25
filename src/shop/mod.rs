@@ -18,7 +18,12 @@ use bevy::prelude::*;
 use bevy_lunex::prelude::*;
 
 use crate::common;
-use crate::level::LevelState;
+use crate::level::{Level, LevelState};
+use crate::map::{BenchCell, MapCell, MapState};
+use crate::role::assets as role_assets;
+use crate::role::{RoleBuilderContainer, RoleBuilderContext};
+use crate::attribute::{Attribute, AttributeSet, AttributeTemplate};
+use crate::skill::{SkillDefinition, SkillEffectBuilderContainer, SkillFeatureBuilderContainer};
 
 // ---------------------------------------------------------------------------
 // Shop state
@@ -52,10 +57,12 @@ impl Plugin for ShopPlugin {
         app.register_type::<ShopItem>();
         app.register_type::<ShopItems>();
         app.register_type::<ShopPanel>();
+        app.register_type::<RoleShopItem>();
         app.init_state::<Shop>();
         app.insert_resource(ShopItems::default());
 
         app.add_systems(OnEnter(Shop(true)), spawn_shop_ui);
+        app.add_systems(Update, spawn_bench_roles);
     }
 }
 
@@ -150,6 +157,22 @@ impl Default for ShopItems {
 #[reflect(Component)]
 pub struct ShopPanel;
 
+/// A component attached to a bench-zone cell entity to mark that a role
+/// should be spawned on it.
+///
+/// Added by the purchase logic when the player buys a role from the shop.
+/// The [`spawn_bench_roles`] system reads this component and calls
+/// [`role::role()`] to spawn the actual role entity as a child of the cell.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component)]
+pub struct RoleShopItem {
+    /// The role name registered in [`RoleBuilderContainer`]
+    /// (e.g. `"archer"`).
+    pub role_name: String,
+    /// Purchase price in gold, deducted when the role is actually spawned.
+    pub price: u32,
+}
+
 /// Spawn the shop panel UI root.
 ///
 /// Returns a bundle suitable for spawning as a child of a bevy_lunex UI
@@ -214,29 +237,28 @@ pub fn shop_ui(role: &ShopItem) -> impl Bundle {
 
 /// Observer that handles a click on the archer purchase button.
 ///
-/// Reads the [`ShopItem`] component from the clicked entity, checks
-/// whether the player has enough gold, deducts the cost on success,
-/// and prints a confirmation message.
+/// Reads the [`ShopItem`] component from the clicked entity and spawns
+/// a standalone [`RoleShopItem`] entity to queue role generation.
+/// Gold is not deducted here — it is deducted in [`spawn_bench_roles`]
+/// when the role is actually placed on a bench cell.
 fn buy_archer(
     click: On<Pointer<Click>>,
-    mut level_state: ResMut<LevelState>,
     query: Query<&ShopItem>,
+    mut commands: Commands,
 ) {
     let Ok(item) = query.get(click.event_target()) else {
         warn!("Archer button missing ShopItem component");
         return;
     };
 
-    if level_state.money < item.price {
-        warn!(
-            "Not enough gold to purchase '{}' (cost: {}, gold: {})",
-            item.name, item.price, level_state.money
-        );
-        return;
-    }
-
-    level_state.money -= item.price;
-    info!("Purchased '{}' for {} gold", item.name, item.price);
+    commands.spawn(RoleShopItem {
+        role_name: item.value.clone(),
+        price: item.price,
+    });
+    info!(
+        "Purchase '{}' queued, waiting for empty bench slot",
+        item.name
+    );
 }
 
 /// Observer that closes the shop UI.
@@ -264,4 +286,104 @@ fn spawn_shop_ui(
     commands.entity(camera).with_children(|parent| {
         parent.spawn(shop_ui(&shop_items.role));
     });
+}
+
+/// System that reads standalone [`RoleShopItem`] entities and spawns the
+/// corresponding role on the first empty bench cell via [`MapState`].
+///
+/// Finds a free bench-zone cell from [`MapState`], locates the matching ECS
+/// entity, spawns the role as a child, and updates [`MapState`] with the new
+/// role entity. The `RoleShopItem` entity is despawned after spawning.
+fn spawn_bench_roles(
+    role_items: Query<(Entity, &RoleShopItem)>,
+    mut level_state: ResMut<LevelState>,
+    mut map_state: ResMut<MapState>,
+    level_entity: Single<Entity, With<Level>>,
+    cell_entities: Query<(Entity, &MapCell), (With<BenchCell>, Without<Children>)>,
+    container: Res<RoleBuilderContainer>,
+    role_assets: Res<role_assets::RoleAssets>,
+    template_assets: Res<Assets<AttributeTemplate>>,
+    skill_container: Res<SkillFeatureBuilderContainer>,
+    skill_effect_container: Res<SkillEffectBuilderContainer>,
+    skill_assets: Res<Assets<SkillDefinition>>,
+    mut commands: Commands,
+) {
+    let level_entity = *level_entity;
+    for (item_entity, item) in &role_items {
+        // Find first bench-zone cell in MapState with no role
+        let free_cell = map_state
+            .cells
+            .iter()
+            .find(|(cell, data)| cell.x <= 1 && data.role.is_none())
+            .map(|(cell, _)| *cell);
+
+        let Some(cell_key) = free_cell else {
+            continue;
+        };
+
+        // Find the actual entity matching this MapCell coordinate
+        let Some((_slot_entity, _)) =
+            cell_entities.iter().find(|(_, mc)| **mc == cell_key)
+        else {
+            continue;
+        };
+
+        // Check if player has enough gold before spawning
+        if level_state.money < item.price {
+            warn!(
+                "Not enough gold to spawn role '{}' (cost: {}, gold: {})",
+                item.role_name, item.price, level_state.money
+            );
+            commands.entity(item_entity).despawn();
+            continue;
+        }
+        level_state.money -= item.price;
+
+        // Despawn the RoleShopItem entity first
+        commands.entity(item_entity).despawn();
+
+        // Build attributes from template (same logic as role::role)
+        let attrs = template_assets
+            .get(&role_assets.archer_attributes)
+            .map(|t| {
+                t.build_attribute_set(&[
+                    "hp", "max_hp", "armor", "attack", "defense",
+                    "attack_speed", "attack_range",
+                ])
+            })
+            .unwrap_or_else(|| {
+                let mut a = AttributeSet::new();
+                a.insert("hp", Attribute::new(100.0));
+                a.insert("max_hp", Attribute::new(100.0));
+                a.insert("armor", Attribute::new(10.0));
+                a.insert("attack", Attribute::new(10.0));
+                a.insert("defense", Attribute::new(5.0));
+                a.insert("attack_speed", Attribute::new(1.0));
+                a.insert("attack_range", Attribute::new(2.0));
+                a
+            });
+
+        let skill = skill_assets
+            .get(&role_assets.archer_skill)
+            .expect("archer skill asset not loaded");
+
+        let ctx = RoleBuilderContext {
+            position: (cell_key.x, cell_key.y),
+            parent: Some(level_entity),
+            attributes: attrs,
+            skill_container: &skill_container,
+            skill_effect_container: &skill_effect_container,
+            skill,
+            skill_handle: role_assets.archer_skill.clone(),
+        };
+
+        let role_entity = container
+            .build("archer", &mut commands, ctx)
+            .expect("RoleBuilderContainer build failed for 'archer'");
+
+        // Update MapState with the new role entity
+        if let Some(data) = map_state.cells.get_mut(&cell_key) {
+            data.role = Some(role_entity);
+        }
+    }
 }
