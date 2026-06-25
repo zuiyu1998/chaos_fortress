@@ -9,6 +9,7 @@ use crate::{
     common, enemy,
     enemy::spawner::{EnemySpawner, SpawnArea, SpawnEntry},
     map::{self, Map, MapData},
+    shop::Shop,
     state::{InGame, Screen},
 };
 use bevy_lunex::prelude::*;
@@ -157,9 +158,10 @@ fn start_battle(
     info!("Battle");
 }
 
-/// Placeholder action for the "Shop" button.
-fn open_shop(_: On<Pointer<Click>>) {
-    info!("Shop");
+/// Action for the "Shop" button — toggles the shop UI open/closed.
+fn open_shop(_: On<Pointer<Click>>, shop: Res<State<Shop>>, mut next_shop: ResMut<NextState<Shop>>) {
+    let is_open = shop.get() == &Shop(true);
+    next_shop.set(Shop(!is_open));
 }
 
 /// 驱动 [`EnemySpawner`] 生成敌人的 System (`tick_enemy_spawner`)。

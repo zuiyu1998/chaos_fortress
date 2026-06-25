@@ -47,7 +47,7 @@ pub(super) fn plugin(app: &mut App) {
 /// Run condition that returns true when the game is in the [`Screen::Gameplay`]
 /// state, not paused ([`Pause(false)`]), and not finished ([`Finish(false)`]).
 pub fn in_gameplay_and_running() -> impl SystemCondition<()> {
-    in_state(Screen::Gameplay)
+    in_state(InGame::Battle)
         .and(in_state(Pause(false)))
         .and(in_state(Finish(false)))
 }

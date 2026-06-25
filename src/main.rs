@@ -14,6 +14,7 @@ pub mod enemy;
 mod level;
 mod map;
 pub mod role;
+pub mod shop;
 pub mod skill;
 #[cfg(feature = "dev")]
 mod dev_tools;
@@ -78,6 +79,7 @@ impl Plugin for AppPlugin {
             level::LevelPlugin,
             map::plugin,
             role::RolePlugin,
+            shop::ShopPlugin,
         ));
         app.add_plugins((
             #[cfg(feature = "dev")]
